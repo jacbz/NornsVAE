@@ -14,12 +14,11 @@ from magenta.models.music_vae import TrainedModel
 from magenta.models.music_vae import configs
 from note_seq.protobuf import music_pb2
 
-from note_seq.protobuf.music_pb2 import NoteSequence
-from music_vae.music_vae_generate import _slerp
 
 NUMBER_OF_SAMPLES = 370000
 METRICS = [
-  'density'
+  'DSTY',
+  'AVG_ITVL'
 ]
 logging = tf.logging
 FLAGS = {
@@ -70,8 +69,14 @@ def measure(z, samples):
   return attribute_vectors
 
 def measure_metric(sequence, metric):
-  if metric == 'density':
+  if metric == 'DSTY':
     return len(sequence.notes._values)
+  if metric == 'AVG_ITVL':
+    pitches = [note.pitch for note in sequence.notes._values]
+    intervals = [abs(t - s) for s, t in zip(pitches, pitches[1:])]
+    if len(intervals) == 0:
+      return 0
+    return np.mean(intervals)
 
 
 config = configs.CONFIG_MAP[FLAGS['config']]

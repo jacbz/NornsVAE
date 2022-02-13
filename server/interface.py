@@ -13,19 +13,25 @@ import numpy as np
 import tensorflow.compat.v1 as tf
 from magenta.models.music_vae import TrainedModel
 from magenta.models.music_vae import configs
+from magenta.models.music_vae.music_vae_generate import _slerp
 from note_seq.protobuf import music_pb2
-
 from note_seq.protobuf.music_pb2 import NoteSequence
-from music_vae.music_vae_generate import _slerp
 
+
+import time
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.patheffects as PathEffects
+import seaborn as sns
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
 
 logging = tf.logging
 FLAGS = {
     'checkpoint_file': '../Test/cat-mel_2bar_big.ckpt',
     'config': 'cat-mel_2bar_big',
     'mode': 'sample', # sample or interpolate
-    'num_outputs': 32,
-    'max_batch_size': 32,
+    'batch_size': 128,
     'temperature': 0.5, # The randomness of the decoding process
     'log': 'INFO' # DEBUG, INFO, WARN, ERROR, or FATAL
 }
@@ -39,7 +45,7 @@ class Interface():
     logging.info('Loading model...')
     checkpoint_file = os.path.expanduser(FLAGS['checkpoint_file'])
     self.model = TrainedModel(
-      self.config, batch_size=min(FLAGS['max_batch_size'], FLAGS['num_outputs']),
+      self.config, batch_size=FLAGS['batch_size'],
       checkpoint_dir_or_path=checkpoint_file)
 
     # TODO: only store z vector here
@@ -50,6 +56,17 @@ class Interface():
 
     with open('attribute_vectors.p', 'rb') as handle:
       self.attribute_vectors = pickle.load(handle)
+
+  def encode(self, seq):
+    _, mu, _ = self.model.encode(seq)
+    return mu
+
+  def decode(self, z):
+    results = self.model.decode(
+      length=self.config.hparams.max_seq_len,
+      z=z,
+      temperature=FLAGS['temperature'])
+    return results
 
   def dict_to_note_seq(self, dict):
     return self.memory[dict['hash']]
@@ -85,15 +102,8 @@ class Interface():
     start = timeit.default_timer()
 
     z = np.random.randn(n, 512).astype(np.float32)
-    results = self.model.decode(
-      length=self.config.hparams.max_seq_len,
-      z=z,
-      temperature=FLAGS['temperature'])
+    results = self.decode(z)
 
-    # results = self.model.sample(
-    #   n=n if n > 0 else 1,
-    #   length=self.config.hparams.max_seq_len,
-    #   temperature=FLAGS['temperature'])
     stop = timeit.default_timer()
     print('Time: ', stop - start)
 
@@ -124,18 +134,15 @@ class Interface():
   def interpolate(self, dict1, dict2, num_outputs):
     seq1 = self.dict_to_note_seq(dict1)
     seq2 = self.dict_to_note_seq(dict2)
-    _, mu, _ = self.model.encode([seq1, seq2])
-    return self._interpolate(mu[0], mu[1], num_outputs)
+    output = self.encode([seq1, seq2])
+    return self._interpolate(output[0], output[1], num_outputs)
 
   def _interpolate(self, z1, z2, num_outputs):
     logging.info('Interpolating...')
     start = timeit.default_timer()
 
     z = np.array([_slerp(z1, z2, t) for t in np.linspace(0, 1, num_outputs)])
-    results = self.model.decode(
-      length=self.config.hparams.max_seq_len,
-      z=z,
-      temperature=FLAGS['temperature'])
+    results = self.decode(z)
 
     stop = timeit.default_timer()
     print('Time: ', stop - start)
@@ -144,24 +151,38 @@ class Interface():
 
     return self.quantize_and_convert(results, z)
 
-  def attribute_arithmetics(self, attribute, num_outputs, hash=None):
+  def attribute_arithmetics(self, attribute, hash1, num_outputs):
     start = timeit.default_timer()
 
-    z = self.memory[hash] if hash is not None else np.random.randn(1, 512).astype(np.float32)
-
+    z = self.memory[hash1]
     step_size = 0.3
     half = math.floor(num_outputs/2)
     multipliers = [step_size * x - (half*step_size) for x in range(num_outputs)]
-
     attribute_vector = self.attribute_vectors[attribute]
     z = np.array(z + [m * attribute_vector for m in multipliers])
-    results = self.model.decode(
-      length=self.config.hparams.max_seq_len,
-      z=z,
-      temperature=FLAGS['temperature'])
+    self.visualize(z)
+    results = self.decode(z)
 
     stop = timeit.default_timer()
     print('Time: ', stop - start)
 
-    self.save_as_midi(results, 'attr')
     return self.quantize_and_convert(results, z)
+
+  def visualize(self, z):
+    pca = PCA(n_components=2)
+    pca_result = pca.fit_transform(z)
+    pca_df = pd.DataFrame(columns=['pca1', 'pca2'])
+    pca_df['pca1'] = pca_result[:, 0]
+    pca_df['pca2'] = pca_result[:, 1]
+    top_two_comp = pca_df[['pca1', 'pca2']]
+
+    f = plt.figure(figsize=(8, 8))
+    ax = plt.subplot(aspect='equal')
+    x = top_two_comp.values
+    sc = ax.scatter(x[:,0], x[:,1], lw=0, s=40)
+    plt.xlim(-25, 25)
+    plt.ylim(-25, 25)
+    ax.axis('off')
+    ax.axis('tight')
+
+    plt.show()

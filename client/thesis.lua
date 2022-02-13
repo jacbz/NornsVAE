@@ -16,24 +16,26 @@ steps_per_beat = 4
 step_length = 1 / 6 -- in seconds
 min_note = 48
 max_note = 83
-interpolation_steps = 30
+interpolation_steps = 11
 
 initialized = false
 
-keys = MusicUtil.NOTE_NAMES
-chords = { 'M', 'm', '7', 'm7', 'maj7' }
-current_left_key = 1
-current_left_chord = 1
-current_right_key = 8
-current_right_chord = 2
-key_or_chord = 1
-enc_2_toggle = 1 -- 1: scroll key_or_chord, 2: scroll chord/key
-
+-- current sequence
 current_step = 1
 current_notes = {}
-current_interpolation = 1
-samples = {}
 
+-- attribute vector mode: 1: density, 2: averageInterval
+mode = 1
+modes = { "DSTY", "AVG_ITVL"}
+mode_steps = 7
+mode_current_step = { } 
+mode_current_notes = { } 
+
+
+-- interpolation
+current_interpolation = 1
+
+samples = {}
 density_samples = {}
 
 function server_sample(n)
@@ -57,7 +59,7 @@ function server_interpolate(seq1, seq2)
   return json.parse(util.os_capture("curl -s '" .. server .. "interpolate_existing?hash1=" .. hash1 .. "&hash2=" .. hash2 .. "&n=" .. n .. "'"))
 end
 
-function server_attribute_arithmetics(seq)
+function server_attribute_arithmetics(seq, attribute)
   local hash = seq.hash
   local n = interpolation_steps - 2
   return json.parse(util.os_capture("curl -s '" .. server .. "attribute_arithmetics?attribute=density&hash=" .. hash .. "&n=" .. n .. "'"))
@@ -186,31 +188,16 @@ function key(n, z)
   if z ~= 1 then return end
 
   if n == 2 then
-    enc_2_toggle = enc_2_toggle == 1 and 2 or 1
+    mode = (mode % #modes) + 1
   elseif n == 3 then
     generate_and_interpolate()
   end
 end
 
-key_or_chord_multiplied = 1
-key_or_chord_multiplier = 1
 function enc(n, d)
   -- encoder actions: n = number, d = delta
   if n == 2 then
-    if enc_2_toggle == 1 then
-      key_or_chord_multiplied = util.wrap(key_or_chord_multiplied + d, 1, 4 * key_or_chord_multiplier)
-      key_or_chord = util.wrap(math.floor(key_or_chord_multiplied / key_or_chord_multiplier), 1, 4)
-    else
-      if key_or_chord == 1 then
-        current_left_key = util.wrap(current_left_key + d, 1, #keys)
-      elseif key_or_chord == 2 then
-        current_left_chord = util.wrap(current_left_chord + d, 1, #chords)
-      elseif key_or_chord == 3 then
-        current_right_key = util.wrap(current_right_key + d, 1, #keys)
-      elseif key_or_chord == 4 then
-        current_right_chord = util.wrap(current_right_chord + d, 1, #chords)
-      end
-    end
+    mode_current_step[mode] = util.clamp(mode_current_step[mode] + d, 1, mode_steps)
   elseif n == 3 then
     current_interpolation = util.clamp(current_interpolation + d, 1, interpolation_steps)
   end
@@ -261,21 +248,25 @@ function redraw()
   screen.line_rel(128 / interpolation_steps, 0)
   screen.stroke()
   
-  -- -- left
-  -- screen.move(0, 62)
-  -- screen.level(key_or_chord == 1 and 15 or 4)
-  -- screen.text(keys[current_left_key])
-  -- screen.move_rel(2, 0)
-  -- screen.level(key_or_chord == 2 and 15 or 4)
-  -- screen.text(chords[current_left_chord])
+  -- attribute vector modes
+  screen.move(0, 62)
+  for m = 1, #modes do
+    local mode_name = modes[m]
+    screen.level(mode == m and 15 or 4)
+    screen.text(mode_name)
+    screen.move_rel(6, 0)
+  end
 
-  -- -- right
-  -- screen.move(128, 62)
-  -- screen.level(key_or_chord == 4 and 15 or 4)
-  -- screen.text_right(chords[current_right_chord])
-  -- screen.move_rel(-screen.text_extents(chords[current_right_chord]) - 4, 0)
-  -- screen.level(key_or_chord == 3 and 15 or 4)
-  -- screen.text_right(keys[current_right_key])
+  -- attribute vector bar
+  if mode_current_step[mode] == nil then mode_current_step[mode] = mode_steps / 2 end
+
+  screen.rect(110, 57, 18 * (mode_current_step[mode] - 1)/(mode_steps - 1), 5)
+  screen.level(15)
+  screen.fill()
+
+  screen.rect(110, 57, 18, 5)
+  screen.level(4)
+  screen.stroke()
 
   screen.update()
 end
