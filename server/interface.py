@@ -17,7 +17,6 @@ from magenta.models.music_vae.music_vae_generate import _slerp
 from note_seq.protobuf import music_pb2
 from note_seq.protobuf.music_pb2 import NoteSequence
 
-
 import time
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -25,6 +24,11 @@ import matplotlib.patheffects as PathEffects
 import seaborn as sns
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
+
+import sys
+file_dir = os.path.dirname(__file__)
+sys.path.append(file_dir)
+from attribute_vectors import METRICS, attribute_string
 
 logging = tf.logging
 FLAGS = {
@@ -36,7 +40,11 @@ FLAGS = {
     'log': 'INFO' # DEBUG, INFO, WARN, ERROR, or FATAL
 }
 
-
+INTERPOLATION_STEPS = 11
+ATTR_STEPS = 9
+ATTR_STEP_SIZE = 0.5
+# [-0.9, -0.6, -0.3, 0, 0.3, 0.6, 0.9]
+ATTR_MULTIPLIERS = [ATTR_STEP_SIZE*x - (math.floor(ATTR_STEPS/2)*ATTR_STEP_SIZE) for x in range(ATTR_STEPS)]
 
 class Interface():
   def __init__(self):
@@ -48,14 +56,52 @@ class Interface():
       self.config, batch_size=FLAGS['batch_size'],
       checkpoint_dir_or_path=checkpoint_file)
 
-    # TODO: only store z vector here
-    self.memory = {}
-
     with open('note_seq.p', 'rb') as handle:
       self.base_note_seq = pickle.load(handle)
 
     with open('attribute_vectors.p', 'rb') as handle:
       self.attribute_vectors = pickle.load(handle)
+
+    self.z_memory = {}
+    self.lookahead_memory = {}
+
+    self.seq1 = None
+    self.seq2 = None
+    self.init()
+
+  def init(self):
+    initial_sequences = self.sample(2)
+    self.seq1 = initial_sequences[0]['hash']
+    self.seq2 = initial_sequences[1]['hash']
+
+  def lookahead(self, attr_values, attribute):
+    attribute_vector = self.attribute_vectors[attribute]
+    attr_i = METRICS.index(attribute)
+
+    z1 = self.z_memory[self.seq1] - attr_values[attr_i] * attribute_vector
+    z2 = self.z_memory[self.seq2] - attr_values[attr_i] * attribute_vector
+
+    z = []
+    z_ids = []
+    for attr_step, m in enumerate(ATTR_MULTIPLIERS):
+      for interpolation_step, t in zip(range(INTERPOLATION_STEPS), np.linspace(0, 1, INTERPOLATION_STEPS)):
+        z.append(_slerp(z1 + m*attribute_vector, z2 + m*attribute_vector, t))
+
+        attr_v = attr_values.copy()
+        attr_v[attr_i] = m
+        z_ids.append((interpolation_step, attribute_string(attr_v, ATTR_STEP_SIZE)))
+
+    self.visualize(z)
+    results = self.decode(z)
+
+    output_map = {}
+    for i, (interpolation_step, attr_id) in enumerate(z_ids):
+      if interpolation_step not in output_map:
+        output_map[interpolation_step] = {}
+      output_map[interpolation_step][attr_id] = results[i]
+
+    return output_map
+
 
   def encode(self, seq):
     _, mu, _ = self.model.encode(seq)
@@ -66,10 +112,10 @@ class Interface():
       length=self.config.hparams.max_seq_len,
       z=z,
       temperature=FLAGS['temperature'])
-    return results
+    return self.quantize_and_convert(results, z)
 
   def dict_to_note_seq(self, dict):
-    return self.memory[dict['hash']]
+    return self.z_memory[dict['hash']]
     # sequence = copy.deepcopy(self.base_note_seq)
     # sequence.ticks_per_quarter = dict['ticks_per_quarter']
     #
@@ -87,13 +133,12 @@ class Interface():
     dict = {
       'hash': sequence_hash,
       'ticks_per_quarter': sequence.ticks_per_quarter,
-      'notes': [{
+      'notes': {note.quantized_start_step: {
         'pitch': note.pitch,
-        'start_time': note.quantized_start_step,
-        'end_time': note.quantized_end_step
-      } for note in sequence.notes._values]
+        'duration': note.quantized_end_step - note.quantized_start_step
+      } for note in sequence.notes._values}
     }
-    self.memory[sequence_hash] = z
+    self.z_memory[sequence_hash] = z
     # print(f"Generated note sequence with hash {sequence_hash}")
     return dict
 
@@ -109,7 +154,7 @@ class Interface():
 
     # self.save_as_midi(results, 'sample')
 
-    return self.quantize_and_convert(results, z)
+    return results
 
   def sample_and_interpolate(self, n):
     z = np.random.randn(2, 512).astype(np.float32)
@@ -127,8 +172,8 @@ class Interface():
       note_seq.sequence_proto_to_midi_file(ns, f'{mode}_{i}.mid')
 
   def interpolate_existing(self, hash1, hash2, num_outputs):
-    z1 = self.memory[hash1]
-    z2 = self.memory[hash2]
+    z1 = self.z_memory[hash1]
+    z2 = self.z_memory[hash2]
     return self._interpolate(z1, z2, num_outputs)
 
   def interpolate(self, dict1, dict2, num_outputs):
@@ -149,15 +194,14 @@ class Interface():
 
     # self.save_as_midi(results, 'interpolate')
 
-    return self.quantize_and_convert(results, z)
+    return results, z
 
   def attribute_arithmetics(self, attribute, hash1, num_outputs):
     start = timeit.default_timer()
 
-    z = self.memory[hash1]
-    step_size = 0.3
+    z = self.z_memory[hash1]
     half = math.floor(num_outputs/2)
-    multipliers = [step_size * x - (half*step_size) for x in range(num_outputs)]
+    multipliers = [ATTR_STEP_SIZE * x - (half*ATTR_STEP_SIZE) for x in range(num_outputs)]
     attribute_vector = self.attribute_vectors[attribute]
     z = np.array(z + [m * attribute_vector for m in multipliers])
     self.visualize(z)
@@ -166,7 +210,7 @@ class Interface():
     stop = timeit.default_timer()
     print('Time: ', stop - start)
 
-    return self.quantize_and_convert(results, z)
+    return results
 
   def visualize(self, z):
     pca = PCA(n_components=2)

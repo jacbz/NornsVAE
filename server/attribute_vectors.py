@@ -12,8 +12,6 @@ import numpy as np
 import tensorflow.compat.v1 as tf
 from magenta.models.music_vae import TrainedModel
 from magenta.models.music_vae import configs
-from note_seq.protobuf import music_pb2
-
 
 NUMBER_OF_SAMPLES = 370000
 METRICS = [
@@ -31,6 +29,8 @@ FLAGS = {
     'log': 'INFO' # DEBUG, INFO, WARN, ERROR, or FATAL
 }
 
+def attribute_string(values, step_size):
+  return ", ".join([attr + '{0:+.0f}'.format(val / step_size) for attr, val in zip(METRICS, values)])
 
 def generate():
   print('Generating')
@@ -64,7 +64,7 @@ def measure(z, samples):
     top_quartile_avg = np.average(top_quartile_z, axis=0)
     bottom_quartile_avg = np.average(bottom_quartile_z, axis=0)
 
-    attribute_vec = top_quartile_avg - bottom_quartile_avg
+    attribute_vec = bottom_quartile_avg - top_quartile_avg
     attribute_vectors[metric] = attribute_vec
   return attribute_vectors
 
@@ -79,22 +79,23 @@ def measure_metric(sequence, metric):
     return np.mean(intervals)
 
 
-config = configs.CONFIG_MAP[FLAGS['config']]
-config.data_converter.max_tensors_per_item = None
-logging.info('Loading model...')
-checkpoint_file = os.path.expanduser(FLAGS['checkpoint_file'])
-model = TrainedModel(
-  config, batch_size=min(FLAGS['max_batch_size'], FLAGS['num_outputs']),
-  checkpoint_dir_or_path=checkpoint_file)
+if __name__ == '__main__':
+  config = configs.CONFIG_MAP[FLAGS['config']]
+  config.data_converter.max_tensors_per_item = None
+  logging.info('Loading model...')
+  checkpoint_file = os.path.expanduser(FLAGS['checkpoint_file'])
+  model = TrainedModel(
+    config, batch_size=min(FLAGS['max_batch_size'], FLAGS['num_outputs']),
+    checkpoint_dir_or_path=checkpoint_file)
 
-# z, results = generate()
-# with open('samples.p', 'wb') as handle:
-#     pickle.dump((z, results), handle)
+  # z, results = generate()
+  # with open('samples.p', 'wb') as handle:
+  #     pickle.dump((z, results), handle)
 
-print('Loading pickle, ~60 seconds')
-with open('samples.p', 'rb') as handle:
-  z, samples = pickle.load(handle)
+  print('Loading pickle, ~60 seconds')
+  with open('samples.p', 'rb') as handle:
+    z, samples = pickle.load(handle)
 
-attribute_vectors = measure(z, samples)
-
-x = 1
+  attribute_vectors = measure(z, samples)
+  with open('attribute_vectors.p', 'wb') as handle:
+    pickle.dump(attribute_vectors, handle)
