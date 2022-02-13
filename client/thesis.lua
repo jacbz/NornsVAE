@@ -51,8 +51,18 @@ function update_lookahead()
   lookahead = server_lookahead()
 end
 
+function get_current_sample()
+  return lookahead[tostring(current_interpolation-1)][attr_values_str()]
+end
+
 function get_current_notes()
-  return lookahead[tostring(current_interpolation-1)][attr_values_str()].notes
+  local dict = get_current_sample()
+  if dict then
+    return dict.notes
+  else
+    print("Error: interpolation ".. tostring(current_interpolation-1) .. " not found for " ..  attr_values_str())
+    return {}
+  end
 end
 
 function attr_values_str()
@@ -122,13 +132,19 @@ function enc(n, d)
   redraw()
 end
 
+function draw_sample(sample, offsetX, offsetY)
+  print(sample['x'], sample['y'])
+  screen.pixel(sample['x'] + offsetX, sample['y'] + offsetY)
+  screen.fill()
+end
+
 function redraw()
   screen.clear()
 
-  screen.level(4)
-  screen.move(0, 10)
-  screen.font_size(8)
-  screen.text('THESIS')
+  -- screen.level(4)
+  -- screen.move(0, 10)
+  -- screen.font_size(8)
+  -- screen.text('THESIS')
 
   if not initialized then
     screen.move(0,20)
@@ -144,12 +160,25 @@ function redraw()
       pitch = notes_at_step.pitch
       duration = notes_at_step.duration
 
-      screen.move((step - 1) * 4, 16 - pitch + max_note)
-      screen.line_rel(4 * duration, 0)
+      screen.move((step - 1) * 2 + 4, 16 - pitch + max_note)
+      screen.line_rel(2 * duration, 0)
       screen.level((current_step >= step and current_step < step + duration) and 15 or 4)
       screen.stroke()
     end
   end
+
+  -- map
+  local left = 128 - 50
+  local top = 1
+  screen.level(8)
+  screen.rect(left, top, 50, 50)
+  screen.stroke()
+
+  for step = 1, interpolation_steps do
+    screen.level(step == current_interpolation and 15 or 4)
+    draw_sample(lookahead[tostring(step-1)][attr_values_str()], left, top)  
+  end
+  
 
   -- current step
   -- screen.level(1)
@@ -176,16 +205,6 @@ function redraw()
     screen.text(mode_name .. string.format("%+d", mode_current_step[m]))
     screen.move_rel(6, 0)
   end
-
-  -- attribute vector bar
-
-  -- screen.rect(110, 57, 18 * (mode_current_step[mode] - 1)/(mode_steps - 1), 5)
-  -- screen.level(15)
-  -- screen.fill()
-
-  -- screen.rect(110, 57, 18, 5)
-  -- screen.level(4)
-  -- screen.stroke()
 
   screen.update()
 end

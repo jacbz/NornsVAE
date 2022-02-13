@@ -29,8 +29,8 @@ FLAGS = {
     'log': 'INFO' # DEBUG, INFO, WARN, ERROR, or FATAL
 }
 
-def attribute_string(values, step_size):
-  return ", ".join([attr + '{0:+.0f}'.format(val / step_size) for attr, val in zip(METRICS, values)])
+def attribute_string(values):
+  return ", ".join([attr + '{0:+}'.format(int(val)) for attr, val in zip(METRICS, values)])
 
 def generate():
   print('Generating')
