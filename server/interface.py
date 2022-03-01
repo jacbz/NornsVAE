@@ -30,14 +30,27 @@ file_dir = os.path.dirname(__file__)
 sys.path.append(file_dir)
 from attribute_vectors import METRICS, attribute_string
 
+DRUMS = True
 logging = tf.logging
 FLAGS = {
-    'checkpoint_file': '../Test/cat-mel_2bar_big.ckpt',
-    'config': 'cat-mel_2bar_big',
+    'checkpoint_file': '../Test/cat-drums_2bar_small.lokl.ckpt',
+    'config': 'cat-drums_2bar_small' if DRUMS else 'cat-mel_2bar_big',
     'mode': 'sample', # sample or interpolate
     'batch_size': 128,
     'temperature': 0.5, # The randomness of the decoding process
     'log': 'INFO' # DEBUG, INFO, WARN, ERROR, or FATAL
+}
+
+DRUM_MAP = {
+  36: 8,
+  38: 7,
+  42: 6,
+  46: 5,
+  45: 4,
+  48: 3,
+  50: 2,
+  49: 1,
+  51: 1
 }
 
 INTERPOLATION_STEPS = 11
@@ -60,11 +73,15 @@ class Interface():
       self.config, batch_size=FLAGS['batch_size'],
       checkpoint_dir_or_path=checkpoint_file)
 
-    with open('note_seq.p', 'rb') as handle:
+    prefix = 'drums' if DRUMS else 'mel'
+    with open(f'{prefix}_note_seq.p', 'rb') as handle:
       self.base_note_seq = pickle.load(handle)
 
-    with open('attribute_vectors.p', 'rb') as handle:
+    with open(f'{prefix}_attribute_vectors.p', 'rb') as handle:
       self.attribute_vectors = pickle.load(handle)
+
+    with open(f'{prefix}_pca_model.p', 'rb') as handle:
+      self.pca_model = pickle.load(handle)
 
     self.z_memory = {}
     self.lookahead_memory = {}
@@ -93,6 +110,9 @@ class Interface():
     attr_i = METRICS.index(attribute)
     attribute_vector = self.attribute_vectors[attribute]
     for attr_step, m in enumerate(ATTR_MULTIPLIERS):
+      # for interpolation_step, t in zip(range(INTERPOLATION_STEPS),
+      #                                  np.linspace(z1 + m*attribute_vector, z2 + m*attribute_vector, INTERPOLATION_STEPS)):
+      #   z.append(t)
       for interpolation_step, t in zip(range(INTERPOLATION_STEPS), np.linspace(0, 1, INTERPOLATION_STEPS)):
         z.append(_slerp(z1 + m*attribute_vector, z2 + m*attribute_vector, t))
 
@@ -100,7 +120,6 @@ class Interface():
         attr_v[attr_i] = m / ATTR_STEP_SIZE
         z_ids.append((interpolation_step, attribute_string(attr_v)))
 
-    self.visualize(z)
     results = self.decode(z)
 
     pca = self.pca_2d(z)
@@ -147,11 +166,16 @@ class Interface():
     dict = {
       'hash': sequence_hash,
       'ticks_per_quarter': sequence.ticks_per_quarter,
-      'notes': {note.quantized_start_step: {
-        'pitch': note.pitch,
-        'duration': note.quantized_end_step - note.quantized_start_step
-      } for note in sequence.notes._values}
+      'notes': {}
     }
+    for note in sequence.notes._values:
+      if note.quantized_start_step not in dict['notes']:
+        dict['notes'][note.quantized_start_step] = []
+      dict['notes'][note.quantized_start_step].append({
+          'pitch': DRUM_MAP[note.pitch] if DRUMS else note.pitch,
+          'duration': note.quantized_end_step - note.quantized_start_step
+        })
+
     self.z_memory[sequence_hash] = z
     # print(f"Generated note sequence with hash {sequence_hash}")
     return dict
@@ -160,7 +184,7 @@ class Interface():
     logging.info('Sampling...')
     start = timeit.default_timer()
 
-    z = np.random.randn(n, 512).astype(np.float32)
+    z = np.random.randn(n, self.config.hparams.z_size).astype(np.float32)
     results = self.decode(z)
 
     stop = timeit.default_timer()
@@ -184,31 +208,28 @@ class Interface():
   def pca_2d(self, z):
     pca = PCA(n_components=2)
     pca_result = pca.fit_transform(z)
+    # pca_result = self.pca_model.transform(z)
 
     x = pca_result[:, 0]
-    pca_result[:, 0] = (x - x.min()) / (x.max() - x.min())
+    pca_result[:, 0] = (x + PCA_CLIP) / (2*PCA_CLIP)
     pca_result[:, 0] = pca_result[:, 0] * 0.8 * SCREEN_WIDTH + 0.1 * SCREEN_WIDTH
 
     y =  pca_result[:, 1]
-    pca_result[:, 1] = (y - y.min()) / (y.max() - y.min())
+    pca_result[:, 1] = (y + PCA_CLIP) / (2*PCA_CLIP)
     pca_result[:, 1] = 0.9 * SCREEN_HEIGHT - (pca_result[:, 1] * 0.8 * SCREEN_HEIGHT)
 
+    self.visualize(pca_result)
     return pca_result
 
-  def visualize(self, z):
-    pca = PCA(n_components=2)
-    pca_result = pca.fit_transform(z)
+  def visualize(self, pca_result):
     pca_df = pd.DataFrame(columns=['pca1', 'pca2'])
     pca_df['pca1'] = pca_result[:, 0]
     pca_df['pca2'] = pca_result[:, 1]
-    top_two_comp = pca_df[['pca1', 'pca2']]
+    x = pca_df[['pca1', 'pca2']].values
 
-    f = plt.figure(figsize=(8, 8))
+    plt.figure(figsize=(8, 8))
     ax = plt.subplot(aspect='equal')
-    x = top_two_comp.values
-    sc = ax.scatter(x[:,0], x[:,1], lw=0, s=10)
-    plt.xlim(-PCA_CLIP, PCA_CLIP)
-    plt.ylim(-PCA_CLIP, PCA_CLIP)
+    ax.scatter(x[:,0], x[:,1], lw=0, s=10)
     ax.axis('off')
     ax.axis('tight')
 

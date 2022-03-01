@@ -1,7 +1,14 @@
 -- thesis (placeholder name)
 -- jacob zhang
 
-engine.name = 'PolyPerc'
+-- drums or melody
+drums = true
+
+engine.name = drums and 'Ack' or 'PolyPerc'
+if drums then
+  local Ack = require 'ack/lib/ack'
+end
+
 util = require 'util'
 json = include('lib/json')
 MusicUtil = require "musicutil"
@@ -19,21 +26,23 @@ interpolation_steps = 11
 
 initialized = false
 
+
 -- current sequence
 current_step = 1
 
 -- attribute vector mode: 1: density, 2: averageInterval
 mode = 1
-modes = { "DSTY", "AVG_ITVL"}
+modes = { "DSTY" }
 mode_min = -4
 mode_max = 4
 mode_steps = mode_max - mode_min
-mode_current_step = { 0, 0 }
+mode_current_step = { 0 }
 
 -- interpolation
 current_interpolation = 1
 
 lookahead = {}
+
 
 function server_lookahead()
   local attr_values = json.stringify(mode_current_step)
@@ -43,7 +52,7 @@ function server_lookahead()
 end
 
 function server_reload()
-  mode_current_step = { 0, 0 }
+  mode_current_step = { 0 }
   util.os_capture("curl -g -s " .. server .. "reload")
 end
 
@@ -74,6 +83,24 @@ function attr_values_str()
 end
 
 function init()
+  if drums then
+    sample_directory = "/home/we/dust/audio/common/808"
+    samples = {
+      -- "808-CY.wav"
+      "808-CP.wav",
+      "808-HT.wav",
+      -- "808-MT.wav",
+      "808-LT.wav",
+      "808-OH.wav",
+      "808-CH.wav",
+      "808-SD.wav",
+      "808-BD.wav",
+    }
+    for i, name in pairs(samples) do
+      engine.loadSample(i, sample_directory.."/"..name)
+    end
+  end
+
   clock.run(function()
     while initialized == false do
       response_code = util.os_capture('curl -s -o /dev/null -w "%{http_code}" ' .. server)
@@ -93,13 +120,22 @@ function step()
   while true do
     clock.sync(step_length)
 
+    util.os_capture('curl -s -o /dev/null -w "%{http_code}" ' .. server)
+    
     local notes = get_current_notes()
 
     local notes_at_step = notes[tostring(current_step-1)]
 
     if notes_at_step then
-      local freq = notes_at_step.pitch
-      engine.hz(MusicUtil.note_num_to_freq(freq))
+      for i, note in pairs(notes_at_step) do
+        local pitch = note.pitch
+
+        if drums then
+          engine.trig(pitch >= 3 and pitch - 1 or pitch)
+        else
+          engine.hz(MusicUtil.note_num_to_freq(pitch))
+        end
+      end
     end
 
     current_step = current_step + 1
@@ -133,7 +169,6 @@ function enc(n, d)
 end
 
 function draw_sample(sample, offsetX, offsetY)
-  print(sample['x'], sample['y'])
   screen.pixel(sample['x'] + offsetX, sample['y'] + offsetY)
   screen.fill()
 end
@@ -153,18 +188,32 @@ function redraw()
     return
   end
 
+  g:all(0)
   local notes = get_current_notes()
   for step = 1, total_steps do
     local notes_at_step = notes[tostring(step-1)]
-    if notes_at_step then
-      pitch = notes_at_step.pitch
-      duration = notes_at_step.duration
-
-      screen.move((step - 1) * 2 + 4, 16 - pitch + max_note)
-      screen.line_rel(2 * duration, 0)
-      screen.level((current_step >= step and current_step < step + duration) and 15 or 4)
-      screen.stroke()
+    if notes_at_step then      
+      for i, note in pairs(notes_at_step) do
+        pitch = note.pitch
+        duration = note.duration
+        
+        level = (current_step >= step and current_step < step + duration) and 15 or 4
+        screen.level(level)
+        if drums then
+          screen.rect((step - 1) * 2 + 4, 24 + pitch * 3, 2, 2)
+          screen.fill()
+          if step < 17 and (current_interpolation == 1 or current_interpolation == interpolation_steps) then
+            g:led(step, pitch, level)
+          end
+        else
+          screen.move((step - 1) * 2 + 4, 16 - pitch + max_note)
+          screen.line_rel(2 * duration, 0)
+          screen.stroke()
+        end
+      end
     end
+
+    g:refresh()
   end
 
   -- map
@@ -207,4 +256,32 @@ function redraw()
   end
 
   screen.update()
+end
+
+local grid = util.file_exists(_path.code.."midigrid") and include "midigrid/lib/mg_128" or grid
+g = grid.connect()
+
+g.key = function (x, y, z)
+  if (z ~= 1) then return end
+  if (current_interpolation ~= 1 and current_interpolation ~= interpolation_steps) then return end
+  toggleDrum(x, y)
+end
+
+function toggleDrum(x, y)
+  local notes = get_current_notes()
+  if notes[tostring(x-1)] == nil then
+    notes[tostring(x-1)] = {}
+  end
+
+  -- if note already exists, toggle off
+  for i, note in pairs(notes[tostring(x-1)]) do
+    if note.pitch == y then
+      notes[tostring(x-1)][i] = nil
+      return
+    end
+  end
+
+  -- toggle on
+  local note = { pitch=y, duration=1 }
+  table.insert(notes[tostring(x-1)], note)
 end

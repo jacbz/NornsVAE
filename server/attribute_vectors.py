@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import math
 import os
 import timeit
 import pickle
@@ -12,19 +13,21 @@ import numpy as np
 import tensorflow.compat.v1 as tf
 from magenta.models.music_vae import TrainedModel
 from magenta.models.music_vae import configs
+from sklearn.decomposition import PCA
 
 NUMBER_OF_SAMPLES = 370000
 METRICS = [
   'DSTY',
-  'AVG_ITVL'
+  # 'AVG_ITVL'
 ]
+DRUMS = True
 logging = tf.logging
 FLAGS = {
-    'checkpoint_file': '../Test/cat-mel_2bar_big.ckpt',
-    'config': 'cat-mel_2bar_big',
+    'checkpoint_file': '../Test/cat-drums_2bar_small.lokl.ckpt',
+    'config': 'cat-drums_2bar_small' if DRUMS else 'cat-mel_2bar_big',
     'mode': 'sample', # sample or interpolate
     'num_outputs': NUMBER_OF_SAMPLES,
-    'max_batch_size': 8192,
+    'max_batch_size': 8192 if DRUMS else 8192,
     'temperature': 0.5, # The randomness of the decoding process
     'log': 'INFO' # DEBUG, INFO, WARN, ERROR, or FATAL
 }
@@ -34,11 +37,19 @@ def attribute_string(values):
 
 def generate():
   print('Generating')
-  z = np.random.randn(NUMBER_OF_SAMPLES, 512).astype(np.float32)
-  results = model.decode(
-    length=config.hparams.max_seq_len,
-    z=z,
-    temperature=FLAGS['temperature'])
+  z = np.empty([0, config.hparams.z_size]).astype(np.float32)
+  results = []
+  batch_size = FLAGS['max_batch_size']
+  batches = math.ceil(NUMBER_OF_SAMPLES / batch_size)
+
+  for i in range(math.ceil(NUMBER_OF_SAMPLES / batch_size)):
+    print(f'Batch {i+1} of {batches}')
+    current_z = np.random.randn(batch_size, config.hparams.z_size).astype(np.float32)
+    results += model.decode(
+      length=config.hparams.max_seq_len,
+      z=current_z,
+      temperature=FLAGS['temperature'])
+    z = np.append(z, current_z, 0)
   return z, results
 
 def measure(z, samples):
@@ -85,17 +96,25 @@ if __name__ == '__main__':
   logging.info('Loading model...')
   checkpoint_file = os.path.expanduser(FLAGS['checkpoint_file'])
   model = TrainedModel(
-    config, batch_size=min(FLAGS['max_batch_size'], FLAGS['num_outputs']),
+    config, batch_size=FLAGS['max_batch_size'],
     checkpoint_dir_or_path=checkpoint_file)
 
-  # z, results = generate()
-  # with open('samples.p', 'wb') as handle:
-  #     pickle.dump((z, results), handle)
+  prefix = 'drums' if DRUMS else 'mel'
 
-  print('Loading pickle, ~60 seconds')
-  with open('samples.p', 'rb') as handle:
-    z, samples = pickle.load(handle)
+  z, samples = generate()
+  with open(f'{prefix}_samples.p', 'wb') as handle:
+      pickle.dump((z, samples), handle)
+
+  # print('Loading pickle, ~60 seconds')
+  # with open(f'{prefix}_samples.p', 'rb') as handle:
+  #   z, samples = pickle.load(handle)
 
   attribute_vectors = measure(z, samples)
-  with open('attribute_vectors.p', 'wb') as handle:
+  with open(f'{prefix}_attribute_vectors.p', 'wb') as handle:
     pickle.dump(attribute_vectors, handle)
+
+  # PCA
+  # pca = PCA(n_components=2)
+  # pca_model = pca.fit(z)
+  # with open('pca_model.p', 'wb') as handle:
+  #   pickle.dump(pca_model, handle)
