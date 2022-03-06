@@ -19,11 +19,10 @@ from note_seq.protobuf.music_pb2 import NoteSequence
 
 import time
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.patheffects as PathEffects
-import seaborn as sns
+# import matplotlib.pyplot as plt
+# import matplotlib.patheffects as PathEffects
+# import seaborn as sns
 from sklearn.decomposition import PCA
-from sklearn.manifold import TSNE
 
 import sys
 file_dir = os.path.dirname(__file__)
@@ -168,7 +167,7 @@ class Interface():
       'ticks_per_quarter': sequence.ticks_per_quarter,
       'notes': {}
     }
-    for note in sequence.notes._values:
+    for note in sequence.notes:
       if note.quantized_start_step not in dict['notes']:
         dict['notes'][note.quantized_start_step] = []
       dict['notes'][note.quantized_start_step].append({
@@ -226,11 +225,11 @@ class Interface():
     pca_df['pca1'] = pca_result[:, 0]
     pca_df['pca2'] = pca_result[:, 1]
     x = pca_df[['pca1', 'pca2']].values
-
-    plt.figure(figsize=(8, 8))
-    ax = plt.subplot(aspect='equal')
-    ax.scatter(x[:,0], x[:,1], lw=0, s=10)
-    ax.axis('off')
-    ax.axis('tight')
-
-    plt.show()
+    #
+    # plt.figure(figsize=(8, 8))
+    # ax = plt.subplot(aspect='equal')
+    # ax.scatter(x[:,0], x[:,1], lw=0, s=10)
+    # ax.axis('off')
+    # ax.axis('tight')
+    #
+    # plt.show()

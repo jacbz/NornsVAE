@@ -43,21 +43,29 @@ current_interpolation = 1
 
 lookahead = {}
 
+-- server communication
+job_id = nil
+
+function server_sync()
+  local response = util.os_capture("curl -g -s " .. server .. "sync")
+  if string.len(response) > 2 then
+    local parsedResponse = json.parse(response)
+    if job_id == parsedResponse.job_id then
+      lookahead = parsedResponse.data
+      job_id = nil
+    end
+  end
+end
 
 function server_lookahead()
   local attr_values = json.stringify(mode_current_step)
   local attribute = modes[mode]
-  local response = util.os_capture("curl -g -s '" .. server .. "lookahead?attr_values=" .. attr_values .. "&attribute=" .. attribute .. "'")
-  return json.parse(response)
+  job_id = util.os_capture("curl -g -s '" .. server .. "lookahead?attr_values=" .. attr_values .. "&attribute=" .. attribute .. "'")
 end
 
 function server_reload()
   mode_current_step = { 0 }
   util.os_capture("curl -g -s " .. server .. "reload")
-end
-
-function update_lookahead()
-  lookahead = server_lookahead()
 end
 
 function get_current_sample()
@@ -101,12 +109,13 @@ function init()
     end
   end
 
+  redraw()
   clock.run(function()
+    server_lookahead()
     while initialized == false do
-      response_code = util.os_capture('curl -s -o /dev/null -w "%{http_code}" ' .. server)
-      if response_code == '200' then
+      server_sync()
+      if next(lookahead) ~= nil then
         initialized = true
-        update_lookahead()
         redraw()
         clock.run(step)
       end
@@ -120,8 +129,10 @@ function step()
   while true do
     clock.sync(step_length)
 
-    util.os_capture('curl -s -o /dev/null -w "%{http_code}" ' .. server)
-    
+    if job_id ~= nil and current_step % 4 == 0 then
+      server_sync()
+    end
+
     local notes = get_current_notes()
 
     local notes_at_step = notes[tostring(current_step-1)]
@@ -151,10 +162,10 @@ function key(n, z)
 
   if n == 2 then
     mode = (mode % #modes) + 1
-    update_lookahead()
+    server_lookahead()
   elseif n == 3 then
     server_reload()
-    update_lookahead()
+    server_lookahead()
   end
 end
 
@@ -185,7 +196,15 @@ function redraw()
     screen.move(0,20)
     screen.level(15)
     screen.text('Connecting to server...')
+    screen.update()
     return
+  end
+
+  if job_id ~= nil then
+    screen.level(4)
+    screen.move(0, 10)
+    screen.font_size(8)
+    screen.text('LOADING')
   end
 
   g:all(0)
@@ -226,8 +245,7 @@ function redraw()
   for step = 1, interpolation_steps do
     screen.level(step == current_interpolation and 15 or 4)
     draw_sample(lookahead[tostring(step-1)][attr_values_str()], left, top)  
-  end
-  
+  end  
 
   -- current step
   -- screen.level(1)
