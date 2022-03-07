@@ -18,12 +18,16 @@ from sklearn.decomposition import PCA
 NUMBER_OF_SAMPLES = 370000
 METRICS = [
   'DSTY',
-  # 'AVG_ITVL'
+  'BD',
+  'SD',
+  'HH',
+  'TO',
+  'CY'
 ]
 DRUMS = True
 logging = tf.logging
 FLAGS = {
-    'checkpoint_file': '../Test/cat-drums_2bar_small.lokl.ckpt',
+    'checkpoint_file': '../Test/cat-drums_2bar_small.hikl.ckpt',
     'config': 'cat-drums_2bar_small' if DRUMS else 'cat-mel_2bar_big',
     'mode': 'sample', # sample or interpolate
     'num_outputs': NUMBER_OF_SAMPLES,
@@ -81,9 +85,19 @@ def measure(z, samples):
 
 def measure_metric(sequence, metric):
   if metric == 'DSTY':
-    return len(sequence.notes._values)
+    return len(sequence.notes)
+  if metric == 'BD':
+    return sum(note.pitch == 36 for note in sequence.notes)
+  if metric == 'SD':
+    return sum(note.pitch == 38 for note in sequence.notes)
+  if metric == 'HH':
+    return sum(note.pitch == 42 or note.pitch == 46 for note in sequence.notes)
+  if metric == 'TO':
+    return sum(note.pitch == 45 or note.pitch == 48 or note.pitch == 50 for note in sequence.notes)
+  if metric == 'CY':
+    return sum(note.pitch == 49 or note.pitch == 51 for note in sequence.notes)
   if metric == 'AVG_ITVL':
-    pitches = [note.pitch for note in sequence.notes._values]
+    pitches = [note.pitch for note in sequence.notes]
     intervals = [abs(t - s) for s, t in zip(pitches, pitches[1:])]
     if len(intervals) == 0:
       return 0

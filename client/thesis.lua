@@ -15,11 +15,11 @@ MusicUtil = require "musicutil"
 
 server = 'http://192.168.1.23:5000/'
 
-total_steps = 32
-bpm = 90
+total_steps = 16
+bpm = 100
+params:set("clock_tempo", bpm)
 steps_per_beat = 4
--- step_length = 60 / (bpm * steps_per_beat) -- in seconds
-step_length = 1 / 6 -- in seconds
+step_length = 1/4 -- in seconds
 min_note = 48
 max_note = 83
 interpolation_steps = 11
@@ -32,11 +32,18 @@ current_step = 1
 
 -- attribute vector mode: 1: density, 2: averageInterval
 mode = 1
-modes = { "DSTY" }
+modes = { 
+  'DSTY',
+  'BD',
+  'SD',
+  'HH',
+  'TO',
+  'CY'
+}
 mode_min = -4
 mode_max = 4
 mode_steps = mode_max - mode_min
-mode_current_step = { 0 }
+mode_current_step = { 0, 0, 0, 0, 0, 0 }
 
 -- interpolation
 current_interpolation = 1
@@ -47,7 +54,7 @@ lookahead = {}
 job_id = nil
 
 function server_sync()
-  local response = util.os_capture("curl -g -s " .. server .. "sync")
+  local response = util.os_capture("curl -g -s " .. server .. "sync" .. " --max-time 1")
   if string.len(response) > 2 then
     local parsedResponse = json.parse(response)
     if job_id == parsedResponse.job_id then
@@ -63,9 +70,16 @@ function server_lookahead()
   job_id = util.os_capture("curl -g -s '" .. server .. "lookahead?attr_values=" .. attr_values .. "&attribute=" .. attribute .. "'")
 end
 
+function server_replace()
+  mode_current_step = { 0, 0, 0, 0, 0, 0 }
+  local dict1 = json.stringify(lookahead[tostring(0)][attr_values_str()])
+  local dict2 = json.stringify(lookahead[tostring(interpolation_steps-1)][attr_values_str()])
+  job_id = util.os_capture("curl -g -s '" .. server .. "replace?dict1=" .. dict1 .. "&dict2=" .. dict2 .. "'")
+end
+
 function server_reload()
-  mode_current_step = { 0 }
-  util.os_capture("curl -g -s " .. server .. "reload")
+  mode_current_step = { 0, 0, 0, 0, 0, 0 }
+  job_id = util.os_capture("curl -g -s " .. server .. "reload")
 end
 
 function get_current_sample()
@@ -129,7 +143,7 @@ function step()
   while true do
     clock.sync(step_length)
 
-    if job_id ~= nil and current_step % 4 == 0 then
+    if job_id ~= nil and current_step % 3 == 0 then
       server_sync()
     end
 
@@ -165,7 +179,6 @@ function key(n, z)
     server_lookahead()
   elseif n == 3 then
     server_reload()
-    server_lookahead()
   end
 end
 
@@ -180,8 +193,10 @@ function enc(n, d)
 end
 
 function draw_sample(sample, offsetX, offsetY)
-  screen.pixel(sample['x'] + offsetX, sample['y'] + offsetY)
-  screen.fill()
+  if sample ~= nil then
+    screen.pixel(sample['x'] + offsetX, sample['y'] + offsetY)
+    screen.fill()
+  end
 end
 
 function redraw()
@@ -219,7 +234,7 @@ function redraw()
         level = (current_step >= step and current_step < step + duration) and 15 or 4
         screen.level(level)
         if drums then
-          screen.rect((step - 1) * 2 + 4, 24 + pitch * 3, 2, 2)
+          screen.rect((step - 1) *  4 + 6, 6 + pitch * 5, 3, 3)
           screen.fill()
           if step < 17 and (current_interpolation == 1 or current_interpolation == interpolation_steps) then
             g:led(step, pitch, level)
@@ -268,9 +283,10 @@ function redraw()
   screen.move(0, 62)
   for m = 1, #modes do
     local mode_name = modes[m]
+
     screen.level(mode == m and 15 or 4)
     screen.text(mode_name .. string.format("%+d", mode_current_step[m]))
-    screen.move_rel(6, 0)
+    screen.move_rel(4, 0)
   end
 
   screen.update()
@@ -291,10 +307,14 @@ function toggleDrum(x, y)
     notes[tostring(x-1)] = {}
   end
 
+  get_current_sample().hash = nil
+
   -- if note already exists, toggle off
   for i, note in pairs(notes[tostring(x-1)]) do
     if note.pitch == y then
-      notes[tostring(x-1)][i] = nil
+      table.remove(notes[tostring(x-1)], i)
+      print(json.stringify(notes[tostring(x-1)]))
+      server_replace()
       return
     end
   end
@@ -302,4 +322,6 @@ function toggleDrum(x, y)
   -- toggle on
   local note = { pitch=y, duration=1 }
   table.insert(notes[tostring(x-1)], note)
+  print(json.stringify(notes[tostring(x-1)]))
+  server_replace()
 end
