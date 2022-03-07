@@ -54,6 +54,8 @@ lookahead = {}
 job_id = nil
 
 function server_sync()
+  local x = os.clock()
+  local s = 0
   local response = util.os_capture("curl -g -s " .. server .. "sync" .. " --max-time 1")
   if string.len(response) > 2 then
     local parsedResponse = json.parse(response)
@@ -143,7 +145,7 @@ function step()
   while true do
     clock.sync(step_length)
 
-    if job_id ~= nil and current_step % 3 == 0 then
+    if job_id ~= nil and current_step % 6 == 0 then
       server_sync()
     end
 
