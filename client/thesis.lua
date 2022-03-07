@@ -54,11 +54,9 @@ lookahead = {}
 job_id = nil
 
 function server_sync()
-  local x = os.clock()
-  local s = 0
   local response = util.os_capture("curl -g -s " .. server .. "sync" .. " --max-time 1")
   if string.len(response) > 2 then
-    local parsedResponse = json.parse(response)
+    local parsedResponse = json.decode(response)
     if job_id == parsedResponse.job_id then
       lookahead = parsedResponse.data
       job_id = nil
@@ -67,21 +65,21 @@ function server_sync()
 end
 
 function server_lookahead()
-  local attr_values = json.stringify(mode_current_step)
+  local attr_values = json.encode(mode_current_step)
   local attribute = modes[mode]
-  job_id = util.os_capture("curl -g -s '" .. server .. "lookahead?attr_values=" .. attr_values .. "&attribute=" .. attribute .. "'")
+  job_id = util.os_capture("curl -g -s '" .. server .. "lookahead?attr_values=" .. attr_values .. "&attribute=" .. attribute .. "' --max-time 1")
 end
 
 function server_replace()
   mode_current_step = { 0, 0, 0, 0, 0, 0 }
-  local dict1 = json.stringify(lookahead[tostring(0)][attr_values_str()])
-  local dict2 = json.stringify(lookahead[tostring(interpolation_steps-1)][attr_values_str()])
-  job_id = util.os_capture("curl -g -s '" .. server .. "replace?dict1=" .. dict1 .. "&dict2=" .. dict2 .. "'")
+  local dict1 = json.encode(lookahead[tostring(0)][attr_values_str()])
+  local dict2 = json.encode(lookahead[tostring(interpolation_steps-1)][attr_values_str()])
+  job_id = util.os_capture("curl -g -s '" .. server .. "replace?dict1=" .. dict1 .. "&dict2=" .. dict2 .. "' --max-time 1")
 end
 
 function server_reload()
   mode_current_step = { 0, 0, 0, 0, 0, 0 }
-  job_id = util.os_capture("curl -g -s " .. server .. "reload")
+  job_id = util.os_capture("curl -g -s " .. server .. "reload --max-time 1")
 end
 
 function get_current_sample()
@@ -145,7 +143,7 @@ function step()
   while true do
     clock.sync(step_length)
 
-    if job_id ~= nil and current_step % 6 == 0 then
+    if job_id ~= nil and current_step % 2 == 0 then
       server_sync()
     end
 
@@ -155,11 +153,10 @@ function step()
 
     if notes_at_step then
       for i, note in pairs(notes_at_step) do
-        local pitch = note.pitch
-
         if drums then
-          engine.trig(pitch >= 3 and pitch - 1 or pitch)
+          engine.trig(note >= 3 and note - 1 or note)
         else
+          local pitch = note.pitch
           engine.hz(MusicUtil.note_num_to_freq(pitch))
         end
       end
@@ -230,8 +227,8 @@ function redraw()
     local notes_at_step = notes[tostring(step-1)]
     if notes_at_step then      
       for i, note in pairs(notes_at_step) do
-        pitch = note.pitch
-        duration = note.duration
+        pitch = drums and note or note.pitch
+        duration = drums and 1 or note.duration
         
         level = (current_step >= step and current_step < step + duration) and 15 or 4
         screen.level(level)
@@ -313,17 +310,14 @@ function toggleDrum(x, y)
 
   -- if note already exists, toggle off
   for i, note in pairs(notes[tostring(x-1)]) do
-    if note.pitch == y then
+    if note == y then
       table.remove(notes[tostring(x-1)], i)
-      print(json.stringify(notes[tostring(x-1)]))
       server_replace()
       return
     end
   end
 
   -- toggle on
-  local note = { pitch=y, duration=1 }
-  table.insert(notes[tostring(x-1)], note)
-  print(json.stringify(notes[tostring(x-1)]))
+  table.insert(notes[tostring(x-1)], y)
   server_replace()
 end

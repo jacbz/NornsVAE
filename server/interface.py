@@ -174,10 +174,10 @@ class Interface():
         for step in dict['notes']:
             for note in dict['notes'][step]:
                 seq_note = sequence.notes.add()
-                seq_note.pitch = DRUM_MAP_INVERTED[note['pitch']]
+                seq_note.pitch = DRUM_MAP_INVERTED[note] if DRUMS else note['pitch']
 
                 step_num = float(step) / 8
-                duration_num = note['duration'] / 8
+                duration_num = (1 if DRUMS else note['duration']) / 8
                 seq_note.start_time = step_num
                 seq_note.end_time = step_num + duration_num
 
@@ -196,12 +196,15 @@ class Interface():
             'notes': {}
         }
         for note in sequence.notes:
+            if note.quantized_start_step > 16:
+                continue
             if note.quantized_start_step not in dict['notes']:
                 dict['notes'][note.quantized_start_step] = []
-            dict['notes'][note.quantized_start_step].append({
-                'pitch': DRUM_MAP[note.pitch] if DRUMS else note.pitch,
+            entry = DRUM_MAP[note.pitch] if DRUMS else {
+                'pitch': note.pitch,
                 'duration': note.quantized_end_step - note.quantized_start_step
-            })
+            }
+            dict['notes'][note.quantized_start_step].append(entry)
 
         self.z_memory[sequence_hash] = z
         # print(f"Generated note sequence with hash {sequence_hash}")
