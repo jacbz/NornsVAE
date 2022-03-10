@@ -248,6 +248,16 @@ function redraw()
     screen.text('LOADING')
   end
 
+  local gridX = 4
+  local gridY = 6
+  for step = 1, total_steps do
+    for pitch = 1, 8 do
+      screen.level(step == current_step and 15 or 1)
+      screen.pixel((step - 1) *  4 + gridX + 1, gridY + pitch * 5 + 1)  
+      screen.fill()
+    end
+  end
+
   local notes = get_current_notes()
   for step = 1, total_steps do
     local notes_at_step = notes[tostring(step-1)]
@@ -259,7 +269,7 @@ function redraw()
         level = (current_step >= step and current_step < step + duration) and 15 or 4
         screen.level(level)
         if drums then
-          screen.rect((step - 1) *  4 + 6, 6 + pitch * 5, 3, 3)
+          screen.rect((step - 1) *  4 + gridX, gridY + pitch * 5, 3, 3)
           screen.fill()
         else
           screen.move((step - 1) * 2 + 4, 16 - pitch + max_note)
