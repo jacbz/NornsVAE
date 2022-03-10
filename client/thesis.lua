@@ -352,12 +352,12 @@ function toggleDrum(x, y)
   for i, note in pairs(notes[tostring(x-1)]) do
     if note == y then
       table.remove(notes[tostring(x-1)], i)
-      trigger_replace_at_step = current_step + 2
+      trigger_replace_at_step = current_step + 4
       return
     end
   end
 
   -- toggle on
   table.insert(notes[tostring(x-1)], y)
-  trigger_replace_at_step = current_step + 2
+  trigger_replace_at_step = current_step + 4
 end

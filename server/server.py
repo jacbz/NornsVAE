@@ -67,8 +67,7 @@ def replace():
     dict2 = json.loads(request.args.get("dict2"))
 
     def replace_target():
-        interface.replace(dict1, dict2)
-        return interface.lookahead()
+        return interface.replace(dict1, dict2)
 
     return do_job(lambda: replace_target())
 
