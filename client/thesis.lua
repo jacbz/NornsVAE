@@ -3,11 +3,10 @@
 
 -- drums or melody
 drums = true
-
-engine.name = drums and 'Ack' or 'PolyPerc'
 if drums then
-  local Ack = require 'ack/lib/ack'
+  Ack = require 'ack/lib/ack'
 end
+engine.name = drums and 'Ack' or 'PolyPerc'
 
 util = require 'util'
 json = include('lib/json')
@@ -117,23 +116,28 @@ function attr_values_str()
   return table.concat(strings, ", ")
 end
 
+function load_drum_samples()
+
+  
+  sample_directory = "/home/we/dust/code/thesis/audio/"
+  samples = {
+    "1.wav",
+    "2.wav",
+    "3.wav",
+    "4.wav",
+    "5.wav",
+    "6.wav",
+    "7.wav",
+    "8.wav",
+  }
+  for i, name in pairs(samples) do
+    engine.loadSample(i-1, sample_directory .. name)
+  end
+end
+
 function init()
   if drums then
-    sample_directory = "/home/we/dust/audio/common/808"
-    samples = {
-      -- "808-CY.wav"
-      "808-CP.wav",
-      "808-HT.wav",
-      -- "808-MT.wav",
-      "808-LT.wav",
-      "808-OH.wav",
-      "808-CH.wav",
-      "808-SD.wav",
-      "808-BD.wav",
-    }
-    for i, name in pairs(samples) do
-      engine.loadSample(i, sample_directory.."/"..name)
-    end
+    load_drum_samples()    
   end
 
   redraw()
@@ -177,7 +181,7 @@ function step()
     if notes_at_step then
       for i, note in pairs(notes_at_step) do
         if drums then
-          engine.trig(note >= 3 and note - 1 or note)
+          engine.trig(note-1)
         else
           local pitch = note.pitch
           engine.hz(MusicUtil.note_num_to_freq(pitch))

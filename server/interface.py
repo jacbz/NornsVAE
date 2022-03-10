@@ -42,15 +42,15 @@ FLAGS = {
 }
 
 DRUM_MAP = {
-    36: 8,
-    38: 7,
-    42: 6,
-    46: 5,
-    45: 4,
-    48: 3,
-    50: 2,
-    49: 1,
-    51: 1
+    36: 8,  # bass drum
+    38: 7,  # snare drum
+    42: 6,  # closed hi-hat
+    46: 5,  # open hi-hat
+    45: 4,  # low tom
+    48: 3,  # mid tom
+    50: 3,  # high tom
+    49: 2,  # crash cymbal
+    51: 1   # ride cymbal
 }
 DRUM_MAP_INVERTED = {v: k for k, v in DRUM_MAP.items()}
 
