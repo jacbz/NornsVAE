@@ -29,6 +29,7 @@ initialized = false
 
 -- current sequence
 current_step = 1
+current_pad_sequence = 'left'
 
 -- attribute vector mode: 1: density, 2: averageInterval
 mode = 1
@@ -47,7 +48,6 @@ mode_current_step = { 0, 0, 0, 0, 0, 0 }
 
 -- interpolation
 current_interpolation = 1
-
 lookahead = {}
 
 -- server communication
@@ -93,6 +93,17 @@ function get_current_notes()
     return dict.notes
   else
     print("Error: interpolation ".. tostring(current_interpolation-1) .. " not found for " ..  attr_values_str())
+    return {}
+  end
+end
+
+function get_current_pad_notes()
+  local interpolation = current_pad_sequence == 'left' and 1 or interpolation_steps
+  local dict = lookahead[tostring(interpolation-1)][attr_values_str()]
+  if dict then
+    return dict.notes
+  else
+    print("Error: interpolation ".. tostring(interpolation-1) .. " not found for " ..  attr_values_str())
     return {}
   end
 end
@@ -181,10 +192,10 @@ function key(n, z)
 
   if n == 1 then
     server_reload()
-
-
   elseif n == 2 then
+    current_pad_sequence = 'left'
   elseif n == 3 then
+    current_pad_sequence = 'right'
   end
 end
 
@@ -231,7 +242,6 @@ function redraw()
     screen.text('LOADING')
   end
 
-  g:all(0)
   local notes = get_current_notes()
   for step = 1, total_steps do
     local notes_at_step = notes[tostring(step-1)]
@@ -245,9 +255,6 @@ function redraw()
         if drums then
           screen.rect((step - 1) *  4 + 6, 6 + pitch * 5, 3, 3)
           screen.fill()
-          if step < 17 and (current_interpolation == 1 or current_interpolation == interpolation_steps) then
-            g:led(step, pitch, level)
-          end
         else
           screen.move((step - 1) * 2 + 4, 16 - pitch + max_note)
           screen.line_rel(2 * duration, 0)
@@ -255,8 +262,26 @@ function redraw()
         end
       end
     end
+  end
 
-    g:refresh()
+  if drums then
+    g:all(0)
+    local pad_notes = get_current_pad_notes()
+    for step = 1, total_steps do
+      local notes_at_step = pad_notes[tostring(step-1)]
+      if notes_at_step then      
+        for i, note in pairs(notes_at_step) do
+          level = (current_step == step) and 15 or 4
+          screen.level(level)
+          if drums then
+            if step < 17 then
+              g:led(step, note, level)
+            end
+          end
+        end
+      end
+      g:refresh()
+    end
   end
 
   -- map
@@ -306,12 +331,11 @@ g = grid.connect()
 
 g.key = function (x, y, z)
   if (z ~= 1) then return end
-  if (current_interpolation ~= 1 and current_interpolation ~= interpolation_steps) then return end
   toggleDrum(x, y)
 end
 
 function toggleDrum(x, y)
-  local notes = get_current_notes()
+  local notes = get_current_pad_notes()
   if notes[tostring(x-1)] == nil then
     notes[tostring(x-1)] = {}
   end
