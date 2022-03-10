@@ -52,6 +52,7 @@ lookahead = {}
 
 -- server communication
 job_id = nil
+trigger_lookahead_at_step = nil  -- when setting this to a step, a lookahead call will be triggered at that step
 
 function server_sync()
   local response = util.os_capture("curl -g -s " .. server .. "sync" .. " --max-time 1")
@@ -143,6 +144,11 @@ function step()
   while true do
     clock.sync(step_length)
 
+    if trigger_lookahead_at_step ~= nil and current_step == (trigger_lookahead_at_step % total_steps) then
+      trigger_lookahead_at_step = nil
+      server_lookahead()
+    end
+
     if job_id ~= nil and current_step % 2 == 0 then
       server_sync()
     end
@@ -173,20 +179,24 @@ function key(n, z)
 
   if z ~= 1 then return end
 
-  if n == 2 then
-    mode = (mode % #modes) + 1
-    server_lookahead()
-  elseif n == 3 then
+  if n == 1 then
     server_reload()
+
+
+  elseif n == 2 then
+  elseif n == 3 then
   end
 end
 
 function enc(n, d)
   -- encoder actions: n = number, d = delta
-  if n == 2 then
-    mode_current_step[mode] = util.clamp(mode_current_step[mode] + d, mode_min, mode_max)
-  elseif n == 3 then
+  if n== 1 then
     current_interpolation = util.clamp(current_interpolation + d, 1, interpolation_steps)
+  elseif n == 2 then
+    mode = util.clamp(mode + d, 1, #modes)
+    trigger_lookahead_at_step = current_step + 1
+  elseif n == 3 then
+    mode_current_step[mode] = util.clamp(mode_current_step[mode] + d, mode_min, mode_max)
   end
   redraw()
 end
