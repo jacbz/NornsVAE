@@ -53,6 +53,7 @@ lookahead = {}
 -- server communication
 job_id = nil
 trigger_lookahead_at_step = nil  -- when setting this to a step, a lookahead call will be triggered at that step
+trigger_replace_at_step = nil  -- when setting this to a step, a replace call will be triggered at that step
 
 function server_sync()
   local response = util.os_capture("curl -g -s " .. server .. "sync" .. " --max-time 1")
@@ -158,6 +159,11 @@ function step()
     if trigger_lookahead_at_step ~= nil and current_step == (trigger_lookahead_at_step % total_steps) then
       trigger_lookahead_at_step = nil
       server_lookahead()
+    end
+
+    if trigger_replace_at_step ~= nil and current_step == (trigger_replace_at_step % total_steps) then
+      trigger_replace_at_step = nil
+      server_replace()
     end
 
     if job_id ~= nil and current_step % 2 == 0 then
@@ -346,12 +352,12 @@ function toggleDrum(x, y)
   for i, note in pairs(notes[tostring(x-1)]) do
     if note == y then
       table.remove(notes[tostring(x-1)], i)
-      server_replace()
+      trigger_replace_at_step = current_step + 2
       return
     end
   end
 
   -- toggle on
   table.insert(notes[tostring(x-1)], y)
-  server_replace()
+  trigger_replace_at_step = current_step + 2
 end
