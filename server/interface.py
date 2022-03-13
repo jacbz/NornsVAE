@@ -33,8 +33,9 @@ from attribute_vectors import METRICS, attribute_string
 DRUMS = True
 logging = tf.logging
 FLAGS = {
-    'checkpoint_file': '../Test/cat-drums_2bar_small.hikl.ckpt',
-    'config': 'cat-drums_2bar_small' if DRUMS else 'cat-mel_2bar_big',
+    'checkpoint_file': '../train/ckpt',
+    # 'checkpoint_file': '../Test/cat-drums_2bar_small.hikl.ckpt',
+    'config': 'cat-drums_1bar_8class' if DRUMS else 'cat-mel_2bar_big',
     'mode': 'sample',  # sample or interpolate
     'batch_size': 128,
     'temperature': 0.5,  # The randomness of the decoding process
@@ -47,7 +48,7 @@ DRUM_MAP = {
     42: 6,  # closed hi-hat
     46: 5,  # open hi-hat
     45: 4,  # low tom
-    48: 3,  # mid tom
+    # 48: 3,  # mid tom (map to high tom)
     50: 3,  # high tom
     49: 2,  # crash cymbal
     51: 1   # ride cymbal
@@ -59,6 +60,7 @@ ATTR_STEPS = 9
 ATTR_STEP_SIZE = 0.5
 # [-0.9, -0.6, -0.3, 0, 0.3, 0.6, 0.9]
 ATTR_MULTIPLIERS = [ATTR_STEP_SIZE * x - (math.floor(ATTR_STEPS / 2) * ATTR_STEP_SIZE) for x in range(ATTR_STEPS)]
+MAX_SEQ_LENGTH = 16
 
 SCREEN_WIDTH = 50
 SCREEN_HEIGHT = 50
@@ -69,6 +71,7 @@ class Interface():
     def __init__(self):
         self.config = configs.CONFIG_MAP[FLAGS['config']]
         self.config.data_converter.max_tensors_per_item = None
+        self.config.hparams.max_seq_len = MAX_SEQ_LENGTH
         logging.info('Loading model...')
         checkpoint_file = os.path.expanduser(FLAGS['checkpoint_file'])
         self.model = TrainedModel(
@@ -162,7 +165,7 @@ class Interface():
 
     def decode(self, z):
         results = self.model.decode(
-            length=self.config.hparams.max_seq_len,
+            length=MAX_SEQ_LENGTH,
             z=z,
             temperature=FLAGS['temperature'])
         return self.quantize_and_convert(results, z)
@@ -170,8 +173,9 @@ class Interface():
     def dict_to_note_seq(self, dict):
         sequence = copy.deepcopy(self.base_note_seq)
         sequence.ticks_per_quarter = dict['ticks_per_quarter']
+        sequence.total_time = 2.0
 
-        for step in dict['notes']:
+        for step in sorted(dict['notes'].keys()):
             for note in dict['notes'][step]:
                 seq_note = sequence.notes.add()
                 seq_note.pitch = DRUM_MAP_INVERTED[note] if DRUMS else note['pitch']
@@ -196,8 +200,8 @@ class Interface():
             'notes': {}
         }
         for note in sequence.notes:
-            if note.quantized_start_step > 16:
-                continue
+            # if note.quantized_start_step >= MAX_SEQ_LENGTH:
+            #     continue
             if note.quantized_start_step not in dict['notes']:
                 dict['notes'][note.quantized_start_step] = []
             entry = DRUM_MAP[note.pitch] if DRUMS else {
