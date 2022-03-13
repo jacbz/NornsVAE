@@ -34,7 +34,7 @@ current_pad_sequence = 'left'
 -- attribute vector mode: 1: density, 2: averageInterval
 mode = 1
 modes = { 
-  'DSTY',
+  'DS',
   'BD',
   'SD',
   'HH',
@@ -43,7 +43,6 @@ modes = {
 }
 mode_min = -4
 mode_max = 4
-mode_steps = mode_max - mode_min
 mode_current_step = { 0, 0, 0, 0, 0, 0 }
 
 -- interpolation
@@ -258,22 +257,31 @@ end
 function enc(n, d)
   -- encoder actions: n = number, d = delta
   if n== 1 then
-    current_interpolation = util.clamp(current_interpolation + d, 1, interpolation_steps)    
-    log("change_interpolation", {
-      step = current_interpolation
-    })
+    m = util.clamp(current_interpolation + d, 1, interpolation_steps)
+    if m ~= current_interpolation then
+      current_interpolation = m
+      log("change_interpolation", {
+        step = current_interpolation
+      })
+    end
   elseif n == 2 then
-    mode = util.clamp(mode + d, 1, #modes)
-    trigger_lookahead_at_step = current_step + 1
-    log("change_mode", {
-      mode = mode
-    })
+    m = util.clamp(mode + d, 1, #modes)
+    if m ~= mode then
+      mode = m
+      trigger_lookahead_at_step = current_step + 1
+      log("change_mode", {
+        mode = mode
+      })
+    end
   elseif n == 3 then
-    mode_current_step[mode] = util.clamp(mode_current_step[mode] + d, mode_min, mode_max)
-    log("change_mode_step", {
-      mode = mode,
-      step = mode_current_step[mode]
-    })
+    m = util.clamp(mode_current_step[mode] + d, mode_min, mode_max)
+    if m ~= mode_current_step[mode] then
+      mode_current_step[mode] = m
+      log("change_mode_step", {
+        mode = mode,
+        step = mode_current_step[mode]
+      })
+    end
   end
   redraw()
 end

@@ -99,6 +99,7 @@ def log():
     def add_to_log(log_data):
         for json_data in log_data.split(";"):
             data = json.loads(json_data)
+            data["source"] = "client"
             append_to_log(data)
 
     thread = threading.Thread(target=lambda: add_to_log(log_data))
@@ -113,8 +114,10 @@ def view_log():
 
 
 def append_to_log(data, type=None):
+    if "source" not in data:
+        data["source"] = "server"
     if "time" not in data:
-        data["time"] = str(datetime.now())
+        data["time"] = datetime.utcnow().isoformat()
     if type is not None:
         data["type"] = type
     data["mac"] = mac

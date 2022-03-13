@@ -17,7 +17,7 @@ from sklearn.decomposition import PCA
 
 NUMBER_OF_SAMPLES = 370000
 METRICS = [
-  'DSTY',
+  'DS',
   'BD',
   'SD',
   'HH',
@@ -27,13 +27,13 @@ METRICS = [
 DRUMS = True
 logging = tf.logging
 FLAGS = {
-    'checkpoint_file': '../Test/cat-drums_2bar_small.hikl.ckpt',
-    'config': 'cat-drums_2bar_small' if DRUMS else 'cat-mel_2bar_big',
+    'checkpoint_file': '../train/ckpt',
+    'config': 'cat-drums_1bar_8class' if DRUMS else 'cat-mel_2bar_big',
     'mode': 'sample', # sample or interpolate
     'num_outputs': NUMBER_OF_SAMPLES,
     'max_batch_size': 8192 if DRUMS else 8192,
     'temperature': 0.5, # The randomness of the decoding process
-    'log': 'INFO' # DEBUG, INFO, WARN, ERROR, or FATAL
+    'log': 'WARN' # DEBUG, INFO, WARN, ERROR, or FATAL
 }
 
 def attribute_string(values):
