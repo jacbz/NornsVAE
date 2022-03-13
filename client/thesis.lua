@@ -24,6 +24,7 @@ max_note = 83
 interpolation_steps = 11
 
 initialized = false
+connection_lost = false
 
 
 -- current sequence
@@ -54,8 +55,37 @@ job_id = nil
 trigger_lookahead_at_step = nil  -- when setting this to a step, a lookahead call will be triggered at that step
 trigger_replace_at_step = nil  -- when setting this to a step, a replace call will be triggered at that step
 
+
+-- logging
+current_log = ""
+
+function log(type, data)
+  entry = {
+    type = type,
+    data = data,
+    time = os.date("!%Y-%m-%dT%TZ")
+  }
+  if string.len(current_log) ~= 0 then
+    current_log = current_log .. ";"
+  end
+  current_log = current_log .. json.encode(entry)
+end
+
+function server_log()
+  print("curl -g -s '" .. server .. "log?data=" .. current_log .. "' --max-time 0.5")
+  local response = util.os_capture("curl -g -s '" .. server .. "log?data=" .. current_log .. "' --max-time 0.5")
+  print(response)
+  if response == "OK" then
+    current_log = ""
+  end
+end
+
 function server_sync()
-  local response = util.os_capture("curl -g -s " .. server .. "sync" .. " --max-time 1")
+  local response = util.os_capture("curl -g -s " .. server .. "sync" .. " --max-time 0.5")
+  if string.len(response) == 0 then
+    connection_lost = true
+    return
+  end
   if string.len(response) > 2 then
     local parsedResponse = json.decode(response)
     if job_id == parsedResponse.job_id then
@@ -68,19 +98,19 @@ end
 function server_lookahead()
   local attr_values = json.encode(mode_current_step)
   local attribute = modes[mode]
-  job_id = util.os_capture("curl -g -s '" .. server .. "lookahead?attr_values=" .. attr_values .. "&attribute=" .. attribute .. "' --max-time 1")
+  job_id = util.os_capture("curl -g -s '" .. server .. "lookahead?attr_values=" .. attr_values .. "&attribute=" .. attribute .. "' --max-time 0.5")
 end
 
 function server_replace()
   mode_current_step = { 0, 0, 0, 0, 0, 0 }
   local dict1 = json.encode(lookahead[tostring(0)][attr_values_str()])
   local dict2 = json.encode(lookahead[tostring(interpolation_steps-1)][attr_values_str()])
-  job_id = util.os_capture("curl -g -s '" .. server .. "replace?dict1=" .. dict1 .. "&dict2=" .. dict2 .. "' --max-time 1")
+  job_id = util.os_capture("curl -g -s '" .. server .. "replace?dict1=" .. dict1 .. "&dict2=" .. dict2 .. "' --max-time 0.5")
 end
 
 function server_reload()
   mode_current_step = { 0, 0, 0, 0, 0, 0 }
-  job_id = util.os_capture("curl -g -s " .. server .. "reload --max-time 1")
+  job_id = util.os_capture("curl -g -s " .. server .. "reload --max-time 0.5")
 end
 
 function get_current_sample()
@@ -142,6 +172,8 @@ function init()
 
   redraw()
   clock.run(function()
+    log("init_client", {})
+
     server_lookahead()
     while initialized == false do
       server_sync()
@@ -159,6 +191,11 @@ end
 function step()
   while true do
     clock.sync(step_length)
+
+    if connection_lost then
+      redraw()
+      return
+    end
 
     if trigger_lookahead_at_step ~= nil and current_step == (trigger_lookahead_at_step % total_steps) then
       trigger_lookahead_at_step = nil
@@ -192,6 +229,11 @@ function step()
     current_step = current_step + 1
     if current_step > total_steps then current_step = 1 end
     redraw()
+
+    -- send log
+    if current_step == 1 and string.len(current_log) > 0 then
+      server_log()
+    end
   end
 end
 
@@ -199,6 +241,10 @@ function key(n, z)
   -- key actions: n = number, z = state
 
   if z ~= 1 then return end
+
+  log("key_press", {
+      key = n
+    })
 
   if n == 1 then
     server_reload()
@@ -212,12 +258,22 @@ end
 function enc(n, d)
   -- encoder actions: n = number, d = delta
   if n== 1 then
-    current_interpolation = util.clamp(current_interpolation + d, 1, interpolation_steps)
+    current_interpolation = util.clamp(current_interpolation + d, 1, interpolation_steps)    
+    log("change_interpolation", {
+      step = current_interpolation
+    })
   elseif n == 2 then
     mode = util.clamp(mode + d, 1, #modes)
     trigger_lookahead_at_step = current_step + 1
+    log("change_mode", {
+      mode = mode
+    })
   elseif n == 3 then
     mode_current_step[mode] = util.clamp(mode_current_step[mode] + d, mode_min, mode_max)
+    log("change_mode_step", {
+      mode = mode,
+      step = mode_current_step[mode]
+    })
   end
   redraw()
 end
@@ -236,6 +292,14 @@ function redraw()
   -- screen.move(0, 10)
   -- screen.font_size(8)
   -- screen.text('THESIS')
+
+  if connection_lost then
+    screen.move(0,20)
+    screen.level(15)
+    screen.text('Connection lost, restart script')
+    screen.update()
+    return
+  end
 
   if not initialized then
     screen.move(0,20)
@@ -367,6 +431,13 @@ function toggleDrum(x, y)
     if note == y then
       table.remove(notes[tostring(x-1)], i)
       trigger_replace_at_step = current_step + 4
+      
+      log("pattern_edit", {
+        action = "toggle_off",
+        current_pad_sequence = current_pad_sequence,
+        step = x,
+        pitch = y
+      })
       return
     end
   end
@@ -374,4 +445,10 @@ function toggleDrum(x, y)
   -- toggle on
   table.insert(notes[tostring(x-1)], y)
   trigger_replace_at_step = current_step + 4
+  log("pattern_edit", {
+    action = "toggle_on",
+    current_pad_sequence = current_pad_sequence,
+    step = x,
+    pitch = y
+  })
 end
