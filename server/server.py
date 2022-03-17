@@ -1,12 +1,14 @@
 import json
 import random
 import threading
+import time
 from datetime import datetime
 from uuid import getnode as get_mac
 
 from flask import Flask
 from flask import request
 from interface import Interface
+import requests
 
 app = Flask(__name__)
 
@@ -108,9 +110,17 @@ def log():
     return 'OK'
 
 
-@app.route("/view_log")
-def view_log():
-    return json.dumps(app_log)
+def send_log_to_server():
+    print(f"Sending {len(app_log)} log items to server...")
+    requests.post("http://localhost:3000/log", json=app_log)
+    app_log.clear()
+
+
+def logging_thread():
+    while True:
+        if len(app_log) > 0:
+            send_log_to_server()
+        time.sleep(5)
 
 
 def append_to_log(data, type=None):
@@ -124,6 +134,6 @@ def append_to_log(data, type=None):
     app_log.append(data)
     print(data)
 
-
+threading.Thread(target=logging_thread).start()
 interface = Interface()
 append_to_log({}, "init_server")
