@@ -11,12 +11,8 @@
 -- K3 edit right sequence
 
 
--- drums or melody
-drums = true
-if drums then
-  Ack = require 'ack/lib/ack'
-end
-engine.name = drums and 'Ack' or 'PolyPerc'
+Ack = require 'ack/lib/ack'
+engine.name = 'Ack'
 
 util = require 'util'
 json = include('lib/json')
@@ -29,8 +25,6 @@ bpm = 100
 params:set("clock_tempo", bpm)
 steps_per_beat = 4
 step_length = 1/4 -- in seconds
-min_note = 48
-max_note = 83
 interpolation_steps = 11
 
 initialized = false
@@ -175,9 +169,7 @@ function load_drum_samples()
 end
 
 function init()
-  if drums then
-    load_drum_samples()    
-  end
+  load_drum_samples()
 
   redraw()
   clock.run(function()
@@ -226,12 +218,7 @@ function step()
 
     if notes_at_step then
       for i, note in pairs(notes_at_step) do
-        if drums then
-          engine.trig(note-1)
-        else
-          local pitch = note.pitch
-          engine.hz(MusicUtil.note_num_to_freq(pitch))
-        end
+        engine.trig(note-1)
       end
     end
 
@@ -348,42 +335,29 @@ function redraw()
   for step = 1, total_steps do
     local notes_at_step = notes[tostring(step-1)]
     if notes_at_step then      
-      for i, note in pairs(notes_at_step) do
-        pitch = drums and note or note.pitch
-        duration = drums and 1 or note.duration
-        
-        level = (current_step >= step and current_step < step + duration) and 15 or 4
+      for i, note in pairs(notes_at_step) do        
+        level = (current_step >= step and current_step < step + 1) and 15 or 4
         screen.level(level)
-        if drums then
-          screen.rect((step - 1) *  4 + gridX, gridY + pitch * 5, 3, 3)
-          screen.fill()
-        else
-          screen.move((step - 1) * 2 + 4, 16 - pitch + max_note)
-          screen.line_rel(2 * duration, 0)
-          screen.stroke()
-        end
+        screen.rect((step - 1) *  4 + gridX, gridY + note * 5, 3, 3)
+        screen.fill()
       end
     end
   end
 
-  if drums then
-    g:all(0)
-    local pad_notes = get_current_pad_notes()
-    for step = 1, total_steps do
-      local notes_at_step = pad_notes[tostring(step-1)]
-      if notes_at_step then      
-        for i, note in pairs(notes_at_step) do
-          level = (current_step == step) and 15 or 4
-          screen.level(level)
-          if drums then
-            if step < 17 then
-              g:led(step, note, level)
-            end
-          end
+  g:all(0)
+  local pad_notes = get_current_pad_notes()
+  for step = 1, total_steps do
+    local notes_at_step = pad_notes[tostring(step-1)]
+    if notes_at_step then      
+      for i, note in pairs(notes_at_step) do
+        level = (current_step == step) and 15 or 4
+        screen.level(level)
+        if step < 17 then
+          g:led(step, note, level)
         end
       end
-      g:refresh()
     end
+    g:refresh()
   end
 
   -- map

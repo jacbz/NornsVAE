@@ -30,12 +30,11 @@ file_dir = os.path.dirname(__file__)
 sys.path.append(file_dir)
 from attribute_vectors import METRICS, attribute_string
 
-DRUMS = True
 logging = tf.logging
 FLAGS = {
-    'checkpoint_file': '../train/ckpt',
+    'checkpoint_file': 'ckpt',
     # 'checkpoint_file': '../Test/cat-drums_2bar_small.hikl.ckpt',
-    'config': 'cat-drums_1bar_8class' if DRUMS else 'cat-mel_2bar_big',
+    'config': 'cat-drums_1bar_8class',
     'mode': 'sample',  # sample or interpolate
     'batch_size': 128,
     'temperature': 0.5,  # The randomness of the decoding process
@@ -78,14 +77,13 @@ class Interface():
             self.config, batch_size=FLAGS['batch_size'],
             checkpoint_dir_or_path=checkpoint_file)
 
-        prefix = 'drums' if DRUMS else 'mel'
-        with open(f'{prefix}_note_seq.p', 'rb') as handle:
+        with open('drums_note_seq.p', 'rb') as handle:
             self.base_note_seq = pickle.load(handle)
 
-        with open(f'{prefix}_attribute_vectors.p', 'rb') as handle:
+        with open('drums_attribute_vectors.p', 'rb') as handle:
             self.attribute_vectors = pickle.load(handle)
 
-        with open(f'{prefix}_pca_model.p', 'rb') as handle:
+        with open('drums_pca_model.p', 'rb') as handle:
             self.pca_model = pickle.load(handle)
 
         self.z_memory = {}
@@ -178,17 +176,16 @@ class Interface():
         for step in sorted(dict['notes'].keys()):
             for note in dict['notes'][step]:
                 seq_note = sequence.notes.add()
-                seq_note.pitch = DRUM_MAP_INVERTED[note] if DRUMS else note['pitch']
+                seq_note.pitch = DRUM_MAP_INVERTED[note]
 
                 step_num = float(step) / 8
-                duration_num = (1 if DRUMS else note['duration']) / 8
+                duration_num = 1 / 8
                 seq_note.start_time = step_num
                 seq_note.end_time = step_num + duration_num
 
-                if DRUMS:
-                    seq_note.velocity = 80
-                    seq_note.instrument = 9
-                    seq_note.is_drum = True
+                seq_note.velocity = 80
+                seq_note.instrument = 9
+                seq_note.is_drum = True
 
         return sequence
 
@@ -204,10 +201,7 @@ class Interface():
             #     continue
             if note.quantized_start_step not in dict['notes']:
                 dict['notes'][note.quantized_start_step] = []
-            entry = DRUM_MAP[note.pitch] if DRUMS else {
-                'pitch': note.pitch,
-                'duration': note.quantized_end_step - note.quantized_start_step
-            }
+            entry = DRUM_MAP[note.pitch]
             dict['notes'][note.quantized_start_step].append(entry)
 
         self.z_memory[sequence_hash] = z

@@ -24,14 +24,13 @@ METRICS = [
   'TO',
   'CY'
 ]
-DRUMS = True
 logging = tf.logging
 FLAGS = {
-    'checkpoint_file': '../train/ckpt',
-    'config': 'cat-drums_1bar_8class' if DRUMS else 'cat-mel_2bar_big',
+    'checkpoint_file': 'ckpt',
+    'config': 'cat-drums_1bar_8class',
     'mode': 'sample', # sample or interpolate
     'num_outputs': NUMBER_OF_SAMPLES,
-    'max_batch_size': 8192 if DRUMS else 8192,
+    'max_batch_size': 8192,
     'temperature': 0.5, # The randomness of the decoding process
     'log': 'WARN' # DEBUG, INFO, WARN, ERROR, or FATAL
 }
@@ -113,7 +112,7 @@ if __name__ == '__main__':
     config, batch_size=FLAGS['max_batch_size'],
     checkpoint_dir_or_path=checkpoint_file)
 
-  prefix = 'drums' if DRUMS else 'mel'
+  prefix = 'drums'
 
   z, samples = generate()
   with open(f'{prefix}_samples.p', 'wb') as handle:
