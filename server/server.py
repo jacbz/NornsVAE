@@ -9,13 +9,14 @@ from flask import Flask
 from flask import request
 from interface import Interface
 import requests
+import hashlib
 
 app = Flask(__name__)
 
 current_job = 0
 current_data = None
 
-mac = get_mac()
+uid = hashlib.md5(hex(get_mac()).encode('utf-8')).hexdigest()[0:6]
 app_log = []
 
 @app.route("/")
@@ -130,7 +131,7 @@ def append_to_log(data, type=None):
         data["time"] = datetime.utcnow().isoformat()
     if type is not None:
         data["type"] = type
-    data["mac"] = mac
+    data["uid"] = uid
     app_log.append(data)
     print(data)
 
