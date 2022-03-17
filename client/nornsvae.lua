@@ -1,5 +1,15 @@
--- thesis (placeholder name)
+-- NornsVAE
 -- jacob zhang
+--
+--
+-- E1 interpolation slider
+-- E2 attribute selector
+-- E3 attribute slider
+--
+-- K1 reload fresh sequences
+-- K2 edit left sequence
+-- K3 edit right sequence
+
 
 -- drums or melody
 drums = true
@@ -412,7 +422,7 @@ function redraw()
 
     screen.level(mode == m and 15 or 4)
     screen.text(mode_name .. string.format("%+d", mode_current_step[m]))
-    screen.move_rel(4, 0)
+    screen.move_rel(3, 0)
   end
 
   screen.update()
