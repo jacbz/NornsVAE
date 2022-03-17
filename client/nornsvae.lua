@@ -52,7 +52,6 @@ mode_current_step = { 0, 0, 0, 0, 0, 0 }
 -- interpolation
 current_interpolation = 1
 lookahead = {}
-
 -- server communication
 job_id = nil
 trigger_lookahead_at_step = nil  -- when setting this to a step, a lookahead call will be triggered at that step
@@ -66,7 +65,7 @@ function log(type, data)
   entry = {
     type = type,
     data = data,
-    time = os.date("!%Y-%m-%dT%TZ")
+    time = os.time(os.date("!*t"))
   }
   if string.len(current_log) ~= 0 then
     current_log = current_log .. ";"
@@ -74,10 +73,12 @@ function log(type, data)
   current_log = current_log .. json.encode(entry)
 end
 
+function server_init()
+  return util.os_capture("curl -g -s '" .. server .. "init?time=" .. os.time(os.date("!*t")) .. "'")
+end
+
 function server_log()
-  print("curl -g -s '" .. server .. "log?data=" .. current_log .. "' --max-time 0.5")
   local response = util.os_capture("curl -g -s '" .. server .. "log?data=" .. current_log .. "' --max-time 0.5")
-  print(response)
   if response == "OK" then
     current_log = ""
   end
@@ -175,16 +176,22 @@ function init()
   clock.run(function()
     log("init_client", {})
 
-    server_lookahead()
-    while initialized == false do
-      server_sync()
-      if next(lookahead) ~= nil then
-        initialized = true
-        redraw()
-        clock.run(step)
-      end
+    local init_response = ''
+    while init_response ~= 'OK' do
+      init_response = server_init()      
       clock.sleep(1/2)
     end
+    
+    server_lookahead()
+    while next(lookahead) == nil do
+      server_sync()      
+      clock.sleep(1/2)
+    end
+    
+    initialized = true
+    redraw()
+    clock.run(step)
+    
   end)
 end
 

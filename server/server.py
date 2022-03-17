@@ -2,7 +2,7 @@ import json
 import random
 import threading
 import time
-from datetime import datetime
+import datetime
 from uuid import getnode as get_mac
 
 from flask import Flask
@@ -19,9 +19,19 @@ current_data = None
 uid = hashlib.md5(hex(get_mac()).encode('utf-8')).hexdigest()[0:6]
 app_log = []
 
+client_time_offset = None
+
 @app.route("/")
 def base():
     return 'Server is running...'
+
+
+@app.route("/init")
+def init():
+    global client_time_offset
+    client_unix_time = datetime.datetime.utcfromtimestamp(int(request.args.get("time")))
+    client_time_offset = (datetime.datetime.utcnow() - client_unix_time)
+    return 'OK'
 
 
 @app.route("/sync")
@@ -127,8 +137,13 @@ def logging_thread():
 def append_to_log(data, type=None):
     if "source" not in data:
         data["source"] = "server"
-    if "time" not in data:
-        data["time"] = datetime.utcnow().isoformat()
+        data["time"] = datetime.datetime.utcnow().isoformat()
+    else:
+        if client_time_offset is None:
+            print("Error: client has not synchronized time")
+            return
+        time = datetime.datetime.utcfromtimestamp(int(data["time"])) + client_time_offset
+        data["time"] = time.isoformat()
     if type is not None:
         data["type"] = type
     data["uid"] = uid

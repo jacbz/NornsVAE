@@ -38,7 +38,7 @@ FLAGS = {
     'mode': 'sample',  # sample or interpolate
     'batch_size': 128,
     'temperature': 0.5,  # The randomness of the decoding process
-    'log': 'INFO'  # DEBUG, INFO, WARN, ERROR, or FATAL
+    'log': 'ERROR'  # DEBUG, INFO, WARN, ERROR, or FATAL
 }
 
 DRUM_MAP = {
