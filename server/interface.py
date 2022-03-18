@@ -11,8 +11,10 @@ import copy
 import note_seq
 import numpy as np
 import tensorflow.compat.v1 as tf
-from magenta.models.music_vae import TrainedModel
+from magenta.common import merge_hparams
+from magenta.models.music_vae import TrainedModel, Config, MusicVAE, lstm_models, data
 from magenta.models.music_vae import configs
+from magenta.models.music_vae.configs import HParams
 from magenta.models.music_vae.music_vae_generate import _slerp
 from note_seq.protobuf import music_pb2
 from note_seq.protobuf.music_pb2 import NoteSequence
@@ -66,9 +68,62 @@ SCREEN_HEIGHT = 50
 PCA_CLIP = 20
 
 
+DRUM_TYPE_PITCHES = [
+    # kick drum
+    [36, 35],
+
+    # snare drum
+    [38, 27, 28, 31, 32, 33, 34, 37, 39, 40, 56, 65, 66, 75, 85],
+
+    # closed hi-hat
+    [42, 44, 54, 68, 69, 70, 71, 73, 78, 80, 22],
+
+    # open hi-hat
+    [46, 67, 72, 74, 79, 81, 26],
+
+    # low tom
+    [45, 29, 41, 43, 61, 64, 84],
+
+    # high tom + mid tom combined
+    [50, 30, 62, 76, 83, 48, 47, 60, 63, 77, 86, 87],
+
+    # crash cymbal
+    [49, 52, 55, 57, 58],
+
+    # ride cymbal
+    [51, 53, 59, 82]
+]
+
+CONFIG = Config(
+    model=MusicVAE(lstm_models.BidirectionalLstmEncoder(),
+                   lstm_models.CategoricalLstmDecoder()),
+    hparams=merge_hparams(
+        lstm_models.get_default_hparams(),
+        HParams(
+            batch_size=512,
+            max_seq_len=16,  # 1 bars w/ 16 steps per bar
+            z_size=256,
+            enc_rnn_size=[512],
+            dec_rnn_size=[256, 256],
+            free_bits=48,
+            max_beta=0.2,
+            sampling_schedule='inverse_sigmoid',
+            sampling_rate=1000,
+        )),
+    note_sequence_augmenter=None,
+    data_converter=data.DrumsConverter(
+        max_bars=100,  # Truncate long drum sequences before slicing.
+        slice_bars=1,
+        steps_per_quarter=4,
+        roll_input=True,
+        pitch_classes=DRUM_TYPE_PITCHES),
+    train_examples_path=None,
+    eval_examples_path=None,
+)
+
 class Interface():
     def __init__(self):
-        self.config = configs.CONFIG_MAP[FLAGS['config']]
+        self.config = CONFIG
         self.config.data_converter.max_tensors_per_item = None
         self.config.hparams.max_seq_len = MAX_SEQ_LENGTH
         logging.info('Loading model...')
