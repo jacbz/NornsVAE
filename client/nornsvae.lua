@@ -30,7 +30,6 @@ interpolation_steps = 11
 initialized = false
 connection_lost = false
 
-
 -- current sequence
 current_step = 1
 current_pad_sequence = 'left'
@@ -65,7 +64,7 @@ function log(type, data)
   entry = {
     type = type,
     data = data,
-    time = os.time(os.date("!*t"))
+    time = util.time()
   }
   if string.len(current_log) ~= 0 then
     current_log = current_log .. ";"
@@ -74,7 +73,7 @@ function log(type, data)
 end
 
 function server_init()
-  return util.os_capture("curl -g -s '" .. server .. "init?time=" .. os.time(os.date("!*t")) .. "'")
+  return util.os_capture("curl -g -s '" .. server .. "init?time=" .. util.time() .. "'")
 end
 
 function server_log()
@@ -150,9 +149,7 @@ function attr_values_str()
   return table.concat(strings, ", ")
 end
 
-function load_drum_samples()
-
-  
+function load_drum_samples()  
   sample_directory = "/home/we/dust/code/thesis/audio/"
   samples = {
     "1.wav",

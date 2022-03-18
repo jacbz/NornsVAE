@@ -29,7 +29,7 @@ def base():
 @app.route("/init")
 def init():
     global client_time_offset
-    client_unix_time = datetime.datetime.utcfromtimestamp(int(request.args.get("time")))
+    client_unix_time = datetime.datetime.utcfromtimestamp(float(request.args.get("time")))
     client_time_offset = (datetime.datetime.utcnow() - client_unix_time)
     return 'OK'
 
@@ -142,7 +142,7 @@ def append_to_log(data, type=None):
         if client_time_offset is None:
             print("Error: client has not synchronized time")
             return
-        time = datetime.datetime.utcfromtimestamp(int(data["time"])) + client_time_offset
+        time = datetime.datetime.utcfromtimestamp(float(data["time"])) + client_time_offset
         data["time"] = time.isoformat()
     if type is not None:
         data["type"] = type
