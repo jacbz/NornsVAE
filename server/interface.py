@@ -13,17 +13,10 @@ import numpy as np
 import tensorflow.compat.v1 as tf
 from magenta.common import merge_hparams
 from magenta.models.music_vae import TrainedModel, Config, MusicVAE, lstm_models, data
-from magenta.models.music_vae import configs
 from magenta.models.music_vae.configs import HParams
 from magenta.models.music_vae.music_vae_generate import _slerp
-from note_seq.protobuf import music_pb2
-from note_seq.protobuf.music_pb2 import NoteSequence
 
-import time
 import pandas as pd
-# import matplotlib.pyplot as plt
-# import matplotlib.patheffects as PathEffects
-# import seaborn as sns
 from sklearn.decomposition import PCA
 
 import sys
@@ -290,8 +283,8 @@ class Interface():
 
     def pca_2d(self, z):
         pca = PCA(n_components=2)
-        pca_result = pca.fit_transform(z)
-        # pca_result = self.pca_model.transform(z)
+        # pca_result = pca.fit_transform(z)
+        pca_result = self.pca_model.transform(z)
 
         x = pca_result[:, 0]
         pca_result[:, 0] = (x + PCA_CLIP) / (2 * PCA_CLIP)
@@ -300,20 +293,4 @@ class Interface():
         y = pca_result[:, 1]
         pca_result[:, 1] = (y + PCA_CLIP) / (2 * PCA_CLIP)
         pca_result[:, 1] = 0.9 * SCREEN_HEIGHT - (pca_result[:, 1] * 0.8 * SCREEN_HEIGHT)
-
-        self.visualize(pca_result)
         return pca_result
-
-    def visualize(self, pca_result):
-        pca_df = pd.DataFrame(columns=['pca1', 'pca2'])
-        pca_df['pca1'] = pca_result[:, 0]
-        pca_df['pca2'] = pca_result[:, 1]
-        x = pca_df[['pca1', 'pca2']].values
-        #
-        # plt.figure(figsize=(8, 8))
-        # ax = plt.subplot(aspect='equal')
-        # ax.scatter(x[:,0], x[:,1], lw=0, s=10)
-        # ax.axis('off')
-        # ax.axis('tight')
-        #
-        # plt.show()

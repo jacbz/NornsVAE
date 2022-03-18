@@ -18,14 +18,16 @@ util = require 'util'
 json = include('lib/json')
 MusicUtil = require "musicutil"
 
-server = 'http://192.168.1.23:5000/'
+local grid = util.file_exists(_path.code.."midigrid") and include "midigrid/lib/mg_128" or grid
+
+server_ip = util.os_capture("cat " .. _path.code .. "nornsvae/server-ip")
+server = "http://" .. server_ip .. ":5000/"
 
 total_steps = 16
 bpm = 100
 params:set("clock_tempo", bpm)
 steps_per_beat = 4
-step_length = 1/4 -- in seconds
-interpolation_steps = 11
+step_length = 1/4
 
 initialized = false
 connection_lost = false
@@ -34,7 +36,7 @@ connection_lost = false
 current_step = 1
 current_pad_sequence = 'left'
 
--- attribute vector mode: 1: density, 2: averageInterval
+-- attribute vectors
 mode = 1
 modes = { 
   'DS',
@@ -49,8 +51,10 @@ mode_max = 4
 mode_current_step = { 0, 0, 0, 0, 0, 0 }
 
 -- interpolation
+interpolation_steps = 11
 current_interpolation = 1
 lookahead = {}
+
 -- server communication
 job_id = nil
 trigger_lookahead_at_step = nil  -- when setting this to a step, a lookahead call will be triggered at that step
@@ -73,7 +77,7 @@ function log(type, data)
 end
 
 function server_init()
-  return util.os_capture("curl -g -s '" .. server .. "init?time=" .. util.time() .. "'")
+  return util.os_capture("curl -g -s '" .. server .. "init?time=" .. util.time() .. "' --max-time 0.5")
 end
 
 function server_log()
@@ -150,7 +154,7 @@ function attr_values_str()
 end
 
 function load_drum_samples()  
-  sample_directory = "/home/we/dust/code/thesis/audio/"
+  sample_directory = _path.code .. "nornsvae/audio/"
   samples = {
     "1.wav",
     "2.wav",
@@ -173,11 +177,15 @@ function init()
   clock.run(function()
     log("init_client", {})
 
+    print("Server: " .. server)
+
     local init_response = ''
     while init_response ~= 'OK' do
+      print("Attempting to contact server")
       init_response = server_init()      
       clock.sleep(1/2)
     end
+    print("Server init success")
     
     server_lookahead()
     while next(lookahead) == nil do
@@ -406,7 +414,6 @@ function redraw()
   screen.update()
 end
 
-local grid = util.file_exists(_path.code.."midigrid") and include "midigrid/lib/mg_128" or grid
 g = grid.connect()
 
 g.key = function (x, y, z)

@@ -16,10 +16,11 @@ app = Flask(__name__)
 current_job = 0
 current_data = None
 
-uid = hashlib.md5(hex(get_mac()).encode('utf-8')).hexdigest()[0:6]
 app_log = []
+uid = hashlib.md5(hex(get_mac()).encode('utf-8')).hexdigest()[0:6]
 
-client_time_offset = None
+client_time_offset = datetime.timedelta(0)
+
 
 @app.route("/")
 def base():
@@ -31,6 +32,7 @@ def init():
     global client_time_offset
     client_unix_time = datetime.datetime.utcfromtimestamp(float(request.args.get("time")))
     client_time_offset = (datetime.datetime.utcnow() - client_unix_time)
+    print(f"Client has reconnected, client time offset {client_time_offset}")
     return 'OK'
 
 
@@ -139,17 +141,20 @@ def append_to_log(data, type=None):
         data["source"] = "server"
         data["time"] = datetime.datetime.utcnow().isoformat()
     else:
-        if client_time_offset is None:
-            print("Error: client has not synchronized time")
-            return
         time = datetime.datetime.utcfromtimestamp(float(data["time"])) + client_time_offset
         data["time"] = time.isoformat()
     if type is not None:
         data["type"] = type
     data["uid"] = uid
     app_log.append(data)
+
+    if data["type"] == "lookahead":
+        data["data"] = "..."
     print(data)
 
-threading.Thread(target=logging_thread).start()
-interface = Interface()
-append_to_log({}, "init_server")
+
+if __name__ == '__main__':
+    threading.Thread(target=logging_thread).start()
+    interface = Interface()
+    append_to_log({}, "init_server")
+    app.run(host="0.0.0.0", port=5000)
