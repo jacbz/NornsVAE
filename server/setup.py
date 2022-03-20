@@ -2,7 +2,8 @@ from cx_Freeze import setup, Executable
 
 # Dependencies are automatically detected, but it might need
 # fine tuning.
-build_options = {'packages': ["tensorflow_datasets", "tf_slim.layers", "scipy.integrate", "scipy.optimize", "keras"],
+build_options = {"build_exe": "build",
+                 'packages': ["tensorflow_datasets", "tf_slim.layers", "scipy.integrate", "scipy.optimize", "keras"],
                  "include_files": ["assets/"],
                  'excludes': []}
 

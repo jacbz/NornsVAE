@@ -26,7 +26,6 @@ from note_seq import chord_symbols_lib
 from note_seq import constants
 from note_seq.protobuf import music_pb2
 import numpy as np
-import pretty_midi
 
 # Set the quantization cutoff.
 # Note events before this cutoff are rounded down to nearest step. Notes
@@ -2139,48 +2138,3 @@ def pianoroll_onsets_to_note_sequence(onsets,
     assert sequence.total_time >= sequence.notes[-1].end_time
 
   return sequence
-
-
-def sequence_to_valued_intervals(note_sequence,
-                                 min_midi_pitch=constants.MIN_MIDI_PITCH,
-                                 max_midi_pitch=constants.MAX_MIDI_PITCH,
-                                 restrict_to_pitch=None):
-  """Convert a NoteSequence to valued intervals.
-
-  Value intervals are intended to be used with mir_eval metrics methods.
-
-  Args:
-    note_sequence: sequence to convert.
-    min_midi_pitch: notes lower than this will be discarded.
-    max_midi_pitch: notes higher than this will be discarded.
-    restrict_to_pitch: notes that are not this pitch will be discarded.
-
-  Returns:
-    intervals: start and end times
-    pitches: pitches in Hz.
-    velocities: MIDI velocities.
-  """
-  intervals = []
-  pitches = []
-  velocities = []
-
-  for note in note_sequence.notes:
-    if restrict_to_pitch and restrict_to_pitch != note.pitch:
-      continue
-    if note.pitch < min_midi_pitch or note.pitch > max_midi_pitch:
-      continue
-    # mir_eval does not allow notes that start and end at the same time.
-    if note.end_time == note.start_time:
-      continue
-    intervals.append((note.start_time, note.end_time))
-    pitches.append(note.pitch)
-    velocities.append(note.velocity)
-
-  # Reshape intervals to ensure that the second dim is 2, even if the list is
-  # of size 0. mir_eval functions will complain if intervals is not shaped
-  # appropriately.
-  intervals = np.array(intervals).reshape((-1, 2))
-  pitches = np.array(pitches)
-  pitches = pretty_midi.note_number_to_hz(pitches)
-  velocities = np.array(velocities)
-  return intervals, pitches, velocities

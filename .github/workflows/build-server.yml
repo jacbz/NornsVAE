@@ -70,5 +70,5 @@ jobs:
           tag_name: release
           body: Test release (auto-generated)
           files: |
-            server/nornsvae_server_windows.zip
-            server/nornsvae_server_mac.zip
+            nornsvae_server_windows.zip
+            nornsvae_server_mac.zip
