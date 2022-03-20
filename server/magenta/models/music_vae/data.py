@@ -17,11 +17,9 @@ import abc
 import collections
 import copy
 import functools
-import itertools
 
 from magenta.pipelines import drum_pipelines
 import note_seq
-from note_seq import chords_lib
 from note_seq import drums_encoder_decoder
 from note_seq import sequences_lib
 import numpy as np
