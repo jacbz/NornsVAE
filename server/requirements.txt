@@ -1,5 +1,4 @@
 Flask == 2.0.3
-note_seq == 0.0.3
 numpy == 1.22.2
 requests == 2.27.1
 scikit_learn == 1.0.2
