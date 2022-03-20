@@ -31,6 +31,47 @@ jobs:
         run: python setup.py build
       - name: Package
         run: Compress-Archive build/* nornsvae_server_windows.zip
+      - uses: actions/upload-artifact@v3
+        with:
+          name: nornsvae_server_windows
+          path: server/nornsvae_server_windows.zip
+
+
+  build-mac:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v3
+      - name: Install dependencies
+        run: |
+            pip install -r requirements.txt
+            pip install cx_Freeze
+      - name: Copy assets
+        run: |
+            curl https://home.in.tum.de/~zhangja/nornsvae/assets.zip -o assets.zip
+            unzip assets.zip .
+      - name: Build
+        run: python setup.py build
+      - name: Package
+        run: zip -r -j nornsvae_server_mac.zip build/*
+      - uses: actions/download-artifact@v3
+        with:
+          name: nornsvae_server_windows
+          path: server/nornsvae_server_windows.zip
+      - uses: actions/upload-artifact@v3
+        with:
+          name: nornsvae_server_mac
+          path: server/nornsvae_server_mac.zip
+
+
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v3
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
@@ -38,4 +79,6 @@ jobs:
           prerelease: true
           tag_name: release
           body: Test release (auto-generated)
-          files: server/nornsvae_server_windows.zip
+          files: |
+            server/nornsvae_server_windows.zip
+            server/nornsvae_server_mac.zip
