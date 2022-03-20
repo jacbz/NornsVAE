@@ -1,4 +1,5 @@
 # NornsVAE
+![](https://github.com/jacbz/NornsVAE/workflows/build_server/badge.svg)
 
 ![](https://norns.community/community/jacbz/nornsvae.png)
 
@@ -15,9 +16,23 @@ The project consists of three modules:
 All actions performed on the client and server are sent to the logging server for evaluation as part of my thesis. Logs are anonymized and contain no identifiable user information. By using this software, you agree to logging.
 
 ## Running the server
-Required: [Python 3](https://www.python.org/)
+There are two options for running server:
+1. Pre-built distributable (.exe) for Windows
+2. Running from source
 
-1. Download the server [here](https://github.com/jacbz/NornsVAE/releases) (this includes the machine learning model and other assets)
+If successfully started, the console will display:
+```
+* Running on http://<ip address>:5000/ (Press CTRL+C to quit)
+```
+Remember this IP address.
+
+### Pre-built distributable
+Download the distributables [here](https://github.com/jacbz/NornsVAE/releases) and run `server.exe`. The distributable is quite large because of package dependencies (in particular, Tensorflow).
+
+### Running from source
+If you wish to run the server from source, you will need Python (and preferably Anaconda).
+
+1. Download the assets [here](https://home.in.tum.de/~zhangja/nornsvae/assets.zip) (this includes the machine learning model) and copy the `assets` folder into the `server` folder
 2. Install python dependencies using
 	```
 	pip install -r requirements.txt
@@ -26,11 +41,6 @@ Required: [Python 3](https://www.python.org/)
 	```
 	python server.py
 	```
-4. If successfully started, the console will display:
-	```
-	* Running on http://<ip address>:5000/ (Press CTRL+C to quit)
-	```
-    Remember this IP address.
 
 ### Troubleshooting
 - If you get errors with `rtmidi` (a dependency), you may need to install headers for some sound libraries. On Ubuntu, this should work:

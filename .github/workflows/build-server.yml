@@ -1,0 +1,41 @@
+name: build_server
+
+on:
+  push:
+    branches: [ master ]
+#    paths: [ server/** ]
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: server
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v3
+      - name: Install dependencies
+        run: |
+            pip install -r server/requirements.txt
+            pip install scipy keras tf_slim tensorflow_datasets cx_Freeze
+      - name: Copy assets
+        run: |
+            Invoke-WebRequest -Uri https://home.in.tum.de/~zhangja/nornsvae/assets.zip -Outfile assets.zip
+            Expand-Archive assets.zip .
+      - name: Build
+        run: python setup.py build
+      - name: Package
+        run: Compress-Archive build/* nornsvae_server_windows.zip
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Pre-release
+          prerelease: true
+          tag_name: release
+          body: Test release (auto-generated)
+          files: server/nornsvae_server_windows.zip
