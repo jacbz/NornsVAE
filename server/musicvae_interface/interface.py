@@ -2,32 +2,24 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import math
-import os
-import timeit
-import pickle
 import copy
+import os
+import pickle
+import timeit
 
-import note_seq
 import numpy as np
 import tensorflow.compat.v1 as tf
-from magenta.common import merge_hparams
-from magenta.models.music_vae import TrainedModel, Config, MusicVAE, lstm_models, data
-from magenta.models.music_vae.configs import HParams
+from magenta.models.music_vae import TrainedModel
 from magenta.models.music_vae.music_vae_generate import _slerp
-
-import pandas as pd
+from note_seq import quantize_note_sequence
 from sklearn.decomposition import PCA
 
-import sys
-
-file_dir = os.path.dirname(__file__)
-sys.path.append(file_dir)
-from attribute_vectors import METRICS, attribute_string
+from .attribute_vectors import ATTRIBUTES, attribute_string
+from .configs import MUSICVAE_CONFIG, MAX_SEQ_LENGTH, ATTR_STEP_SIZE, ATTR_MULTIPLIERS, INTERPOLATION_STEPS, \
+    DRUM_MAP_INVERTED, DRUM_MAP, PCA_CLIP, SCREEN_HEIGHT, SCREEN_WIDTH
 
 logging = tf.logging
 FLAGS = {
-    'checkpoint_file': 'ckpt',
     # 'checkpoint_file': '../Test/cat-drums_2bar_small.hikl.ckpt',
     'config': 'cat-drums_1bar_8class',
     'mode': 'sample',  # sample or interpolate
@@ -36,102 +28,25 @@ FLAGS = {
     'log': 'ERROR'  # DEBUG, INFO, WARN, ERROR, or FATAL
 }
 
-DRUM_MAP = {
-    36: 8,  # bass drum
-    38: 7,  # snare drum
-    42: 6,  # closed hi-hat
-    46: 5,  # open hi-hat
-    45: 4,  # low tom
-    # 48: 3,  # mid tom (map to high tom)
-    50: 3,  # high tom
-    49: 2,  # crash cymbal
-    51: 1   # ride cymbal
-}
-DRUM_MAP_INVERTED = {v: k for k, v in DRUM_MAP.items()}
-
-INTERPOLATION_STEPS = 11
-ATTR_STEPS = 9
-ATTR_STEP_SIZE = 0.5
-# [-0.9, -0.6, -0.3, 0, 0.3, 0.6, 0.9]
-ATTR_MULTIPLIERS = [ATTR_STEP_SIZE * x - (math.floor(ATTR_STEPS / 2) * ATTR_STEP_SIZE) for x in range(ATTR_STEPS)]
-MAX_SEQ_LENGTH = 16
-
-SCREEN_WIDTH = 50
-SCREEN_HEIGHT = 50
-PCA_CLIP = 20
-
-
-DRUM_TYPE_PITCHES = [
-    # kick drum
-    [36, 35],
-
-    # snare drum
-    [38, 27, 28, 31, 32, 33, 34, 37, 39, 40, 56, 65, 66, 75, 85],
-
-    # closed hi-hat
-    [42, 44, 54, 68, 69, 70, 71, 73, 78, 80, 22],
-
-    # open hi-hat
-    [46, 67, 72, 74, 79, 81, 26],
-
-    # low tom
-    [45, 29, 41, 43, 61, 64, 84],
-
-    # high tom + mid tom combined
-    [50, 30, 62, 76, 83, 48, 47, 60, 63, 77, 86, 87],
-
-    # crash cymbal
-    [49, 52, 55, 57, 58],
-
-    # ride cymbal
-    [51, 53, 59, 82]
-]
-
-CONFIG = Config(
-    model=MusicVAE(lstm_models.BidirectionalLstmEncoder(),
-                   lstm_models.CategoricalLstmDecoder()),
-    hparams=merge_hparams(
-        lstm_models.get_default_hparams(),
-        HParams(
-            batch_size=512,
-            max_seq_len=16,  # 1 bars w/ 16 steps per bar
-            z_size=256,
-            enc_rnn_size=[512],
-            dec_rnn_size=[256, 256],
-            free_bits=48,
-            max_beta=0.2,
-            sampling_schedule='inverse_sigmoid',
-            sampling_rate=1000,
-        )),
-    note_sequence_augmenter=None,
-    data_converter=data.DrumsConverter(
-        max_bars=100,  # Truncate long drum sequences before slicing.
-        slice_bars=1,
-        steps_per_quarter=4,
-        roll_input=True,
-        pitch_classes=DRUM_TYPE_PITCHES),
-    train_examples_path=None,
-    eval_examples_path=None,
-)
 
 class Interface():
-    def __init__(self):
-        self.config = CONFIG
+    def __init__(self, assets_folder):
+        self.config = MUSICVAE_CONFIG
         self.config.data_converter.max_tensors_per_item = None
         self.config.hparams.max_seq_len = MAX_SEQ_LENGTH
         logging.info('Loading model...')
-        checkpoint_file = os.path.expanduser(FLAGS['checkpoint_file'])
+        checkpoint_file = os.path.expanduser(f"{assets_folder}/checkpoint")
         self.model = TrainedModel(
             self.config, batch_size=FLAGS['batch_size'],
             checkpoint_dir_or_path=checkpoint_file)
 
-        with open('drums_note_seq.p', 'rb') as handle:
+        with open(f'{assets_folder}/drums_note_seq.p', 'rb') as handle:
             self.base_note_seq = pickle.load(handle)
 
-        with open('drums_attribute_vectors.p', 'rb') as handle:
+        with open(f'{assets_folder}/drums_attribute_vectors.p', 'rb') as handle:
             self.attribute_vectors = pickle.load(handle)
 
-        with open('drums_pca_model.p', 'rb') as handle:
+        with open(f'{assets_folder}/drums_pca_model.p', 'rb') as handle:
             self.pca_model = pickle.load(handle)
 
         self.z_memory = {}
@@ -140,7 +55,7 @@ class Interface():
         self.seq1hash = None
         self.seq2hash = None
         self.current_attr_values = None
-        self.current_attr = METRICS[0]
+        self.current_attr = ATTRIBUTES[0]
         self.init()
 
     def init(self):
@@ -152,21 +67,21 @@ class Interface():
         z1 = np.copy(self.z_memory[self.seq1hash])
         z2 = np.copy(self.z_memory[self.seq2hash])
         if attr_values is None:
-            attr_values = [0] * len(METRICS)
+            attr_values = [0] * len(ATTRIBUTES)
         if attribute is not None:
             self.current_attr = attribute
         else:
             attribute = self.current_attr
 
         # apply attribute vectors, except for the one we are calculating now
-        for i, attr in enumerate(METRICS):
+        for i, attr in enumerate(ATTRIBUTES):
             if attribute != attr:
                 z1 += self.attribute_vectors[attr] * attr_values[i] * ATTR_STEP_SIZE
                 z2 += self.attribute_vectors[attr] * attr_values[i] * ATTR_STEP_SIZE
 
         z = []
         z_ids = []
-        attr_i = METRICS.index(attribute)
+        attr_i = ATTRIBUTES.index(attribute)
         attribute_vector = self.attribute_vectors[attribute]
         for attr_step, m in enumerate(ATTR_MULTIPLIERS):
             # for interpolation_step, t in zip(range(INTERPOLATION_STEPS),
@@ -271,20 +186,16 @@ class Interface():
         return results
 
     def quantize_and_convert(self, results, z):
-        results = [note_seq.quantize_note_sequence(sequence, 4) for sequence in results]
+        results = [quantize_note_sequence(sequence, 4) for sequence in results]
 
         # convert to dict
         results = [self.note_seq_to_dict(sequence, z[i]) for i, sequence in enumerate(results)]
         return results
 
-    def save_as_midi(self, results, mode):
-        for i, ns in enumerate(results):
-            note_seq.sequence_proto_to_midi_file(ns, f'{mode}_{i}.mid')
-
     def pca_2d(self, z):
         pca = PCA(n_components=2)
-        # pca_result = pca.fit_transform(z)
-        pca_result = self.pca_model.transform(z)
+        pca_result = pca.fit_transform(z)
+        # pca_result = self.pca_model.transform(z)
 
         x = pca_result[:, 0]
         pca_result[:, 0] = (x + PCA_CLIP) / (2 * PCA_CLIP)

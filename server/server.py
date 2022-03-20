@@ -7,9 +7,10 @@ from uuid import getnode as get_mac
 
 from flask import Flask
 from flask import request
-from interface import Interface
 import requests
 import hashlib
+
+from musicvae_interface.interface import Interface
 
 app = Flask(__name__)
 
@@ -155,6 +156,6 @@ def append_to_log(data, type=None):
 
 if __name__ == '__main__':
     threading.Thread(target=logging_thread).start()
-    interface = Interface()
+    interface = Interface("assets")
     append_to_log({}, "init_server")
     app.run(host="0.0.0.0", port=5000)

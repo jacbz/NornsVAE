@@ -4,26 +4,16 @@ from __future__ import print_function
 
 import math
 import os
-import timeit
 import pickle
-import copy
 
-import note_seq
 import numpy as np
 import tensorflow.compat.v1 as tf
 from magenta.models.music_vae import TrainedModel
 from magenta.models.music_vae import configs
-from sklearn.decomposition import PCA
+
+from musicvae_interface.configs import ATTRIBUTES
 
 NUMBER_OF_SAMPLES = 370000
-METRICS = [
-  'DS',
-  'BD',
-  'SD',
-  'HH',
-  'TO',
-  'CY'
-]
 logging = tf.logging
 FLAGS = {
     'checkpoint_file': 'ckpt',
@@ -36,7 +26,7 @@ FLAGS = {
 }
 
 def attribute_string(values):
-  return ", ".join([attr + '{0:+}'.format(int(val)) for attr, val in zip(METRICS, values)])
+  return ", ".join([attr + '{0:+}'.format(int(val)) for attr, val in zip(ATTRIBUTES, values)])
 
 def generate():
   print('Generating')
@@ -60,10 +50,10 @@ def measure(z, samples):
   attribute_vectors = {}
 
   num_samples = len(samples)
-  for metric in METRICS:
+  for attr in ATTRIBUTES:
     vals = np.empty(num_samples)
     for i, sample in enumerate(samples):
-      vals[i] = measure_metric(sample, metric)
+      vals[i] = measure_metric(sample, attr)
 
     # calculate quartiles
     quartiles = np.percentile(vals, [25, 50, 75])
@@ -79,7 +69,7 @@ def measure(z, samples):
     bottom_quartile_avg = np.average(bottom_quartile_z, axis=0)
 
     attribute_vec = bottom_quartile_avg - top_quartile_avg
-    attribute_vectors[metric] = attribute_vec
+    attribute_vectors[attr] = attribute_vec
   return attribute_vectors
 
 def measure_metric(sequence, metric):
