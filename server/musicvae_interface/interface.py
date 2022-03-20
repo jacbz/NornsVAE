@@ -6,14 +6,12 @@ import copy
 import os
 import pickle
 import timeit
-
 import numpy as np
 import tensorflow.compat.v1 as tf
-from magenta.models.music_vae import TrainedModel
-from magenta.models.music_vae.music_vae_generate import _slerp
 from note_seq import quantize_note_sequence
 from sklearn.decomposition import PCA
 
+from magenta.models.music_vae import TrainedModel
 from .attribute_vectors import ATTRIBUTES, attribute_string
 from .configs import MUSICVAE_CONFIG, MAX_SEQ_LENGTH, ATTR_STEP_SIZE, ATTR_MULTIPLIERS, INTERPOLATION_STEPS, \
     DRUM_MAP_INVERTED, DRUM_MAP, PCA_CLIP, SCREEN_HEIGHT, SCREEN_WIDTH
@@ -88,7 +86,7 @@ class Interface():
             #                                  np.linspace(z1 + m*attribute_vector, z2 + m*attribute_vector, INTERPOLATION_STEPS)):
             #   z.append(t)
             for interpolation_step, t in zip(range(INTERPOLATION_STEPS), np.linspace(0, 1, INTERPOLATION_STEPS)):
-                z.append(_slerp(z1 + m * attribute_vector, z2 + m * attribute_vector, t))
+                z.append(self.slerp(z1 + m * attribute_vector, z2 + m * attribute_vector, t))
 
                 attr_v = attr_values.copy()
                 attr_v[attr_i] = m / ATTR_STEP_SIZE
@@ -170,6 +168,14 @@ class Interface():
         self.z_memory[sequence_hash] = z
         # print(f"Generated note sequence with hash {sequence_hash}")
         return dict
+
+    def slerp(self, p0, p1, t):
+        """Spherical linear interpolation."""
+        omega = np.arccos(
+            np.dot(np.squeeze(p0 / np.linalg.norm(p0)),
+                   np.squeeze(p1 / np.linalg.norm(p1))))
+        so = np.sin(omega)
+        return np.sin((1.0 - t) * omega) / so * p0 + np.sin(t * omega) / so * p1
 
     def sample(self, n):
         logging.info('Sampling...')

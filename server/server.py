@@ -125,7 +125,7 @@ def log():
 
 
 def send_log_to_server():
-    print(f"Sending {len(app_log)} log items to server...")
+    print(f"Logging {len(app_log)} items")
     requests.post("http://localhost:3000/log", json=app_log)
     app_log.clear()
 

@@ -1,8 +1,8 @@
 import math
 
+from tensor2tensor.utils.hparam import HParams
 from magenta.common import merge_hparams
 from magenta.models.music_vae import Config, MusicVAE, lstm_models, data
-from magenta.models.music_vae.configs import HParams
 
 DRUM_TYPE_PITCHES = [
     # kick drum

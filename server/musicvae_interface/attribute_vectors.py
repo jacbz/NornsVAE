@@ -5,13 +5,10 @@ from __future__ import print_function
 import math
 import os
 import pickle
-
 import numpy as np
 import tensorflow.compat.v1 as tf
 from magenta.models.music_vae import TrainedModel
-from magenta.models.music_vae import configs
-
-from musicvae_interface.configs import ATTRIBUTES
+from musicvae_interface.configs import ATTRIBUTES, MUSICVAE_CONFIG
 
 NUMBER_OF_SAMPLES = 370000
 logging = tf.logging
@@ -94,7 +91,7 @@ def measure_metric(sequence, metric):
 
 
 if __name__ == '__main__':
-  config = configs.CONFIG_MAP[FLAGS['config']]
+  config = MUSICVAE_CONFIG
   config.data_converter.max_tensors_per_item = None
   logging.info('Loading model...')
   checkpoint_file = os.path.expanduser(FLAGS['checkpoint_file'])
