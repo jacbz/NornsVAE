@@ -1,8 +1,6 @@
 .idea
 __pycache__
-*.p
 dist
 build
 node_modules
-ckpt*
-where
+assets

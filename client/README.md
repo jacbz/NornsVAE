@@ -1,0 +1,1 @@
+Client repo located at https://github.com/jacbz/nornsvae_client
