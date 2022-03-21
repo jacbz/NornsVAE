@@ -1,11 +1,12 @@
 import json
 import random
+import re
 import sys
 import threading
 import time
 import datetime
 from uuid import getnode as get_mac
-
+from pathlib import Path
 from flask import Flask
 from flask import request
 import requests
@@ -127,7 +128,8 @@ def log():
 
 
 def send_log_to_server():
-    print(f"Logging {len(app_log_buffer)} items")
+    count = len(app_log_buffer)
+    print(f"Logging {count} item{'s' if count != 1 else ''}")
     requests.post("http://localhost:3000/log", json=app_log_buffer)
     app_log_buffer.clear()
 
@@ -152,15 +154,36 @@ def append_to_log(data, type=None):
     app_log_buffer.append(data)
 
 
+def ask_for_email(email):
+    regex = re.compile(r'[^@]+@[^@]+\.[^@]+')
+    while not re.fullmatch(regex, email):
+        print("Please enter your email:")
+        email = input()
+    append_to_log({"data": { "email": email} }, "email")
+    return email
+
+
 if __name__ == '__main__':
+    print("Welcome to NornsVAE!")
+    print("As part of my master thesis, I'm researching how machine learning can be applied"
+          "to an interactive music generation context.")
+    print("After experimenting with NornsVAE, you are kindly asked to fill out a short survey on your experience.\n")
+    print("Thank you!")
+
+    filename = Path('email')
+    filename.touch(exist_ok=True)
+    with open("email", "r+") as email_file:
+        email = ask_for_email(email_file.read())
+        email_file.write(email)
+
     sys.stdout = ConsoleFilter(sys.stdout)
     sys.stderr = ConsoleFilter(sys.stderr)
-
-    threading.Thread(target=logging_thread).start()
 
     print("Loading machine learning model...")
     interface = Interface("assets")
 
     append_to_log({}, "init_server")
     print(f"Your user ID is {uid}")
+
+    threading.Thread(target=logging_thread).start()
     app.run(host="0.0.0.0", port=5000)
