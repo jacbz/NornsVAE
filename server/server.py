@@ -170,23 +170,30 @@ if __name__ == '__main__':
     print("After experimenting with NornsVAE, you are kindly asked to fill out a short survey on your experience.")
     print("Thank you!\n")
 
-    filename = Path('email')
-    filename.touch(exist_ok=True)
+    # email handling
+    email_filename = Path('email')
+    email_filename.touch(exist_ok=True)
     with open("email", "r+") as email_file:
         email = ask_for_email(email_file.read())
         email_file.seek(0)
         email_file.write(email)
         email_file.truncate()
 
-    sys.stdout = ConsoleFilter(sys.stdout)
-    sys.stderr = ConsoleFilter(sys.stderr)
+    # init console filter and log
+    log_filename = Path(f"log_{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
+    log_filename.touch(exist_ok=True)
+    sys.stdout = ConsoleFilter(sys.stdout, log_filename)
+    sys.stderr = ConsoleFilter(sys.stderr, log_filename)
 
+    # load MusicVAE model
     print("Loading machine learning model...")
     interface = Interface("assets")
 
+    # log server init
     append_to_log({}, "init_server")
     print(f"Your user ID is {uid}")
 
+    # start logging thread
     threading.Thread(target=logging_thread).start()
 
     # run Flask server without showing banner

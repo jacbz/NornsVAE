@@ -4,4 +4,5 @@ dist
 build
 node_modules
 assets
-email
+server/email
+server/log*
