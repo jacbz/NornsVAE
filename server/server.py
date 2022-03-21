@@ -1,5 +1,6 @@
 import json
 import random
+import sys
 import threading
 import time
 import datetime
@@ -10,6 +11,7 @@ from flask import request
 import requests
 import hashlib
 
+from musicvae_interface.console_filter import ConsoleFilter
 from musicvae_interface.interface import Interface
 
 app = Flask(__name__)
@@ -17,7 +19,7 @@ app = Flask(__name__)
 current_job = 0
 current_data = None
 
-app_log = []
+app_log_buffer = []
 uid = hashlib.md5(hex(get_mac()).encode('utf-8')).hexdigest()
 
 client_time_offset = datetime.timedelta(0)
@@ -125,14 +127,14 @@ def log():
 
 
 def send_log_to_server():
-    print(f"Logging {len(app_log)} items")
-    requests.post("http://localhost:3000/log", json=app_log)
-    app_log.clear()
+    print(f"Logging {len(app_log_buffer)} items")
+    requests.post("http://localhost:3000/log", json=app_log_buffer)
+    app_log_buffer.clear()
 
 
 def logging_thread():
     while True:
-        if len(app_log) > 0:
+        if len(app_log_buffer) > 0:
             send_log_to_server()
         time.sleep(5)
 
@@ -147,15 +149,18 @@ def append_to_log(data, type=None):
     if type is not None:
         data["type"] = type
     data["uid"] = uid
-    app_log.append(data)
-
-    if data["type"] == "lookahead":
-        data["data"] = "..."
-    print(data)
+    app_log_buffer.append(data)
 
 
 if __name__ == '__main__':
+    sys.stdout = ConsoleFilter(sys.stdout)
+    sys.stderr = ConsoleFilter(sys.stderr)
+
     threading.Thread(target=logging_thread).start()
+
+    print("Loading machine learning model...")
     interface = Interface("assets")
+
     append_to_log({}, "init_server")
+    print(f"Your user ID is {uid}")
     app.run(host="0.0.0.0", port=5000)

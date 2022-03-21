@@ -23,12 +23,14 @@ FLAGS = {
     'mode': 'sample',  # sample or interpolate
     'batch_size': 128,
     'temperature': 0.5,  # The randomness of the decoding process
-    'log': 'ERROR'  # DEBUG, INFO, WARN, ERROR, or FATAL
+    'log': 'FATAL'  # DEBUG, INFO, WARN, ERROR, or FATAL
 }
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 class Interface():
     def __init__(self, assets_folder):
+        tf.get_logger().setLevel(FLAGS['log'])
         self.config = MUSICVAE_CONFIG
         self.config.data_converter.max_tensors_per_item = None
         self.config.hparams.max_seq_len = MAX_SEQ_LENGTH
@@ -179,16 +181,8 @@ class Interface():
 
     def sample(self, n):
         logging.info('Sampling...')
-        start = timeit.default_timer()
-
         z = np.random.randn(n, self.config.hparams.z_size).astype(np.float32)
         results = self.decode(z)
-
-        stop = timeit.default_timer()
-        print('Time: ', stop - start)
-
-        # self.save_as_midi(results, 'sample')
-
         return results
 
     def quantize_and_convert(self, results, z):
