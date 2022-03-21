@@ -167,14 +167,16 @@ if __name__ == '__main__':
     print("Welcome to NornsVAE!")
     print("As part of my master thesis, I'm researching how machine learning can be applied"
           "to an interactive music generation context.")
-    print("After experimenting with NornsVAE, you are kindly asked to fill out a short survey on your experience.\n")
-    print("Thank you!")
+    print("After experimenting with NornsVAE, you are kindly asked to fill out a short survey on your experience.")
+    print("Thank you!\n")
 
     filename = Path('email')
     filename.touch(exist_ok=True)
     with open("email", "r+") as email_file:
         email = ask_for_email(email_file.read())
+        email_file.seek(0)
         email_file.write(email)
+        email_file.truncate()
 
     sys.stdout = ConsoleFilter(sys.stdout)
     sys.stderr = ConsoleFilter(sys.stderr)
@@ -186,4 +188,8 @@ if __name__ == '__main__':
     print(f"Your user ID is {uid}")
 
     threading.Thread(target=logging_thread).start()
+
+    # run Flask server without showing banner
+    cli = sys.modules['flask.cli']
+    cli.show_server_banner = lambda *x: None
     app.run(host="0.0.0.0", port=5000)

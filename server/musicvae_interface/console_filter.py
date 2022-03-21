@@ -5,7 +5,7 @@ from datetime import datetime
 class ConsoleFilter(object):
     def __init__(self, stream):
         self.stream = stream
-        self.pattern = re.compile(r'tensorflow|tf\.|layer\.')
+        self.pattern = re.compile(r'tensorflow|tf\.|layer\.|development server')
         self.triggered = False
 
     def __getattr__(self, attr_name):
