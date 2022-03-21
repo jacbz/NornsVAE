@@ -18,7 +18,7 @@ current_job = 0
 current_data = None
 
 app_log = []
-uid = hashlib.md5(hex(get_mac()).encode('utf-8')).hexdigest()[0:6]
+uid = hashlib.md5(hex(get_mac()).encode('utf-8')).hexdigest()
 
 client_time_offset = datetime.timedelta(0)
 

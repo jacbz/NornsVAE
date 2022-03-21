@@ -41,12 +41,6 @@ If you wish to run the server from source, you will need Python (and preferably 
 	python server.py
 	```
 
-### Troubleshooting
-- If you get errors with `rtmidi` (a dependency), you may need to install headers for some sound libraries. On Ubuntu, this should work:
-	```
-	sudo apt-get install build-essential libasound2-dev libjack-dev portaudio19-dev
-	```
-
 ## Running the client
 1. From maiden, type
 	```
