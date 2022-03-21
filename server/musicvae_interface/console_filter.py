@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 
 
 class ConsoleFilter(object):
@@ -15,6 +16,8 @@ class ConsoleFilter(object):
             self.triggered = False
         else:
             if self.pattern.search(data) is None:
+                if len(data) > 1:
+                    data = f"[{datetime.now().strftime('%H:%M:%S')}]\t{data}"
                 self.stream.write(data)
                 self.stream.flush()
             else:
