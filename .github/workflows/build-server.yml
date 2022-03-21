@@ -19,7 +19,7 @@ jobs:
       - name: Install dependencies
         run: |
             pip3 install -r requirements.txt
-            pip3 install tensorflow_datasets tf_slim cx_Freeze
+            pip3 install cx_Freeze
       - name: Copy assets
         run: |
             Invoke-WebRequest -Uri https://home.in.tum.de/~zhangja/nornsvae/assets.zip -Outfile assets.zip
@@ -42,7 +42,7 @@ jobs:
       - name: Install dependencies
         run: |
             pip3 install -r requirements.txt
-            pip3 install tensorflow_datasets tf_slim cx_Freeze
+            pip3 install cx_Freeze
       - name: Copy assets
         run: |
             curl https://home.in.tum.de/~zhangja/nornsvae/assets.zip -o assets.zip
@@ -70,5 +70,5 @@ jobs:
           tag_name: release
           body: Test release (auto-generated)
           files: |
-            nornsvae_server_windows.zip
-            nornsvae_server_mac.zip
+            nornsvae_server_windows/nornsvae_server_windows.zip
+            nornsvae_server_mac/nornsvae_server_mac.zip

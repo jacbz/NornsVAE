@@ -24,7 +24,6 @@ from note_seq import drums_encoder_decoder
 from note_seq import sequences_lib
 import numpy as np
 import tensorflow.compat.v1 as tf
-import tensorflow_datasets as tfds
 
 PIANO_MIN_MIDI_PITCH = 21
 PIANO_MAX_MIDI_PITCH = 108
@@ -526,34 +525,6 @@ class DrumsConverter(BaseNoteSequenceConverter):
     return output_sequences
 
 
-def count_examples(examples_path, tfds_name, data_converter,
-                   file_reader=tf.python_io.tf_record_iterator):
-  """Counts the number of examples produced by the converter from files."""
-  def _file_generator():
-    filenames = tf.gfile.Glob(examples_path)
-    for f in filenames:
-      tf.logging.info('Counting examples in %s.', f)
-      reader = file_reader(f)
-      for item_str in reader:
-        yield data_converter.str_to_item_fn(item_str)
-
-  def _tfds_generator():
-    ds = tfds.as_numpy(
-        tfds.load(tfds_name, split=tfds.Split.VALIDATION, try_gcs=True))
-    # TODO(adarob): Generalize to other data types if needed.
-    for ex in ds:
-      yield note_seq.midi_to_note_sequence(ex['midi'])
-
-  num_examples = 0
-
-  generator = _tfds_generator if tfds_name else _file_generator
-  for item in generator():
-    tensors = data_converter.to_tensors(item)
-    num_examples += len(tensors.inputs)
-  tf.logging.info('Total examples: %d', num_examples)
-  return num_examples
-
-
 def split_process_and_combine(note_sequence, split, sample_size, randomize,
                               to_tensors_fn):
   """Splits a `NoteSequence`, processes and combines the `ConverterTensors`.
@@ -630,101 +601,3 @@ def convert_to_tensors_op(item_scalar, converter):
   controls.set_shape([None, None, converter.control_depth])
   lengths.set_shape([None] + list(converter.length_shape))
   return inputs, outputs, controls, lengths
-
-
-def get_dataset(
-    config,
-    tf_file_reader=tf.data.TFRecordDataset,
-    is_training=False,
-    cache_dataset=True):
-  """Get input tensors from dataset for training or evaluation.
-
-  Args:
-    config: A Config object containing dataset information.
-    tf_file_reader: The tf.data.Dataset class to use for reading files.
-    is_training: Whether or not the dataset is used in training. Determines
-      whether dataset is shuffled and repeated, etc.
-    cache_dataset: Whether to cache the dataset in memory for improved
-      performance.
-
-  Returns:
-    A tf.data.Dataset containing input, output, control, and length tensors.
-
-  Raises:
-    ValueError: If no files match examples path.
-  """
-  batch_size = config.hparams.batch_size
-  examples_path = (
-      config.train_examples_path if is_training else config.eval_examples_path)
-  note_sequence_augmenter = (
-      config.note_sequence_augmenter if is_training else None)
-  data_converter = config.data_converter
-  data_converter.set_mode('train' if is_training else 'eval')
-
-  if examples_path:
-    tf.logging.info('Reading examples from file: %s', examples_path)
-    num_files = len(tf.gfile.Glob(examples_path))
-    if not num_files:
-      raise ValueError(
-          'No files were found matching examples path: %s' %  examples_path)
-    files = tf.data.Dataset.list_files(examples_path)
-    dataset = files.interleave(
-        tf_file_reader,
-        cycle_length=tf.data.experimental.AUTOTUNE,
-        num_parallel_calls=tf.data.experimental.AUTOTUNE)
-    # Use instead of `deterministic` kwarg for backward compatibility.
-    options = tf.data.Options()
-    options.experimental_deterministic = not is_training
-    dataset = dataset.with_options(options)
-  elif config.tfds_name:
-    tf.logging.info('Reading examples from TFDS: %s', config.tfds_name)
-    dataset = tfds.load(
-        config.tfds_name,
-        split=tfds.Split.TRAIN if is_training else tfds.Split.VALIDATION,
-        shuffle_files=is_training,
-        try_gcs=True)
-    def _tf_midi_to_note_sequence(ex):
-      return tf.py_function(
-          lambda x:  # pylint:disable=g-long-lambda
-          [note_seq.midi_to_note_sequence(x.numpy()).SerializeToString()],
-          inp=[ex['midi']],
-          Tout=tf.string,
-          name='midi_to_note_sequence')
-    dataset = dataset.map(
-        _tf_midi_to_note_sequence,
-        num_parallel_calls=tf.data.experimental.AUTOTUNE)
-  else:
-    raise ValueError(
-        'One of `config.examples_path` or `config.tfds_name` must be defined.')
-
-  def _remove_pad_fn(padded_seq_1, padded_seq_2, padded_seq_3, length):
-    if length.shape.ndims == 0:
-      return (padded_seq_1[0:length], padded_seq_2[0:length],
-              padded_seq_3[0:length], length)
-    else:
-      # Don't remove padding for hierarchical examples.
-      return padded_seq_1, padded_seq_2, padded_seq_3, length
-
-  if note_sequence_augmenter is not None:
-    dataset = dataset.map(
-        note_sequence_augmenter.tf_augment,
-        num_parallel_calls=tf.data.experimental.AUTOTUNE)
-
-  dataset = dataset.map(
-      tf.autograph.experimental.do_not_convert(
-          functools.partial(convert_to_tensors_op, converter=data_converter)),
-      num_parallel_calls=tf.data.experimental.AUTOTUNE)
-  dataset = dataset.unbatch()
-  dataset = dataset.map(
-      _remove_pad_fn, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-  if cache_dataset:
-    dataset = dataset.cache()
-  if is_training:
-    dataset = dataset.shuffle(buffer_size=10 * batch_size).repeat()
-
-  dataset = dataset.padded_batch(
-      batch_size,
-      tf.data.get_output_shapes(dataset),
-      drop_remainder=True).prefetch(tf.data.experimental.AUTOTUNE)
-
-  return dataset

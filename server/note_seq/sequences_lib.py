@@ -19,10 +19,8 @@ import copy
 import itertools
 import math
 import operator
-import random
 
 from absl import logging
-from note_seq import chord_symbols_lib
 from note_seq import constants
 from note_seq.protobuf import music_pb2
 import numpy as np
@@ -1130,85 +1128,6 @@ def quantize_note_sequence_absolute(note_sequence, steps_per_second):
   return qns
 
 
-def transpose_note_sequence(ns,
-                            amount,
-                            min_allowed_pitch=constants.MIN_MIDI_PITCH,
-                            max_allowed_pitch=constants.MAX_MIDI_PITCH,
-                            transpose_chords=True,
-                            in_place=False):
-  """Transposes note sequence specified amount, deleting out-of-bound notes.
-
-  Args:
-    ns: The NoteSequence proto to be transposed.
-    amount: Number of half-steps to transpose up or down.
-    min_allowed_pitch: Minimum pitch allowed in transposed NoteSequence. Notes
-      assigned lower pitches will be deleted.
-    max_allowed_pitch: Maximum pitch allowed in transposed NoteSequence. Notes
-      assigned higher pitches will be deleted.
-    transpose_chords: If True, also transpose chord symbol text annotations. If
-      False, chord symbols will be removed.
-    in_place: If True, the input note_sequence is edited directly.
-
-  Returns:
-    The transposed NoteSequence and a count of how many notes were deleted.
-
-  Raises:
-    ChordSymbolError: If a chord symbol is unable to be transposed.
-  """
-  if not in_place:
-    new_ns = music_pb2.NoteSequence()
-    new_ns.CopyFrom(ns)
-    ns = new_ns
-
-  new_note_list = []
-  deleted_note_count = 0
-  end_time = 0
-
-  for note in ns.notes:
-    new_pitch = note.pitch + amount
-    if (min_allowed_pitch <= new_pitch <= max_allowed_pitch) or note.is_drum:
-      end_time = max(end_time, note.end_time)
-
-      if not note.is_drum:
-        note.pitch += amount
-
-        # The pitch name, if present, will no longer be valid.
-        note.pitch_name = UNKNOWN_PITCH_NAME
-
-      new_note_list.append(note)
-    else:
-      deleted_note_count += 1
-
-  if deleted_note_count > 0:
-    del ns.notes[:]
-    ns.notes.extend(new_note_list)
-
-  # Since notes were deleted, we may need to update the total time.
-  ns.total_time = end_time
-
-  if transpose_chords:
-    # Also update the chord symbol text annotations. This can raise a
-    # ChordSymbolError if a chord symbol cannot be interpreted.
-    for ta in ns.text_annotations:
-      if ta.annotation_type == CHORD_SYMBOL and ta.text != constants.NO_CHORD:
-        ta.text = chord_symbols_lib.transpose_chord_symbol(ta.text, amount)
-  else:
-    # Remove chord symbol text annotations.
-    text_annotations_to_keep = []
-    for ta in ns.text_annotations:
-      if ta.annotation_type != CHORD_SYMBOL:
-        text_annotations_to_keep.append(ta)
-    if len(text_annotations_to_keep) < len(ns.text_annotations):
-      del ns.text_annotations[:]
-      ns.text_annotations.extend(text_annotations_to_keep)
-
-  # Also transpose key signatures.
-  for ks in ns.key_signatures:
-    ks.key = (ks.key + amount) % 12
-
-  return ns, deleted_note_count
-
-
 def _clamp_transpose(transpose_amount, ns_min_pitch, ns_max_pitch,
                      min_allowed_pitch, max_allowed_pitch):
   """Clamps the specified transpose amount to keep a ns in the desired bounds.
@@ -1232,92 +1151,6 @@ def _clamp_transpose(transpose_amount, ns_min_pitch, ns_max_pitch,
   else:
     transpose_amount = min(max_allowed_pitch - ns_max_pitch, transpose_amount)
   return transpose_amount
-
-
-def augment_note_sequence(ns,
-                          min_stretch_factor,
-                          max_stretch_factor,
-                          min_transpose,
-                          max_transpose,
-                          min_allowed_pitch=constants.MIN_MIDI_PITCH,
-                          max_allowed_pitch=constants.MAX_MIDI_PITCH,
-                          delete_out_of_range_notes=False):
-  """Modifed a NoteSequence with random stretching and transposition.
-
-  This method can be used to augment a dataset for training neural nets.
-  Note that the provided ns is modified in place.
-
-  Args:
-    ns: A NoteSequence proto to be augmented.
-    min_stretch_factor: Minimum amount to stretch/compress the NoteSequence.
-    max_stretch_factor: Maximum amount to stretch/compress the NoteSequence.
-    min_transpose: Minimum number of steps to transpose the NoteSequence.
-    max_transpose: Maximum number of steps to transpose the NoteSequence.
-    min_allowed_pitch: The lowest pitch permitted (ie, for regular piano this
-      should be set to 21.)
-    max_allowed_pitch: The highest pitch permitted (ie, for regular piano this
-      should be set to 108.)
-    delete_out_of_range_notes: If true, a transposition amount will be chosen on
-      the interval [min_transpose, max_transpose], and any out-of-bounds notes
-      will be deleted. If false, the interval [min_transpose, max_transpose]
-      will be truncated such that no out-of-bounds notes will ever be created.
-  TODO(dei): Add support for specifying custom distributions over possible
-    values of note stretch and transposition amount.
-
-  Returns:
-    The randomly augmented NoteSequence.
-
-  Raises:
-    ValueError: If mins in ranges are larger than maxes.
-  """
-  if min_stretch_factor > max_stretch_factor:
-    raise ValueError('min_stretch_factor should be <= max_stretch_factor')
-  if min_allowed_pitch > max_allowed_pitch:
-    raise ValueError('min_allowed_pitch should be <= max_allowed_pitch')
-  if min_transpose > max_transpose:
-    raise ValueError('min_transpose should be <= max_transpose')
-
-  if ns.notes:
-    # Choose random factor by which to stretch or compress note sequence.
-    stretch_factor = random.uniform(min_stretch_factor, max_stretch_factor)
-    ns = stretch_note_sequence(ns, stretch_factor, in_place=True)
-
-    # Choose amount by which to translate the note sequence.
-    if delete_out_of_range_notes:
-      # If transposition takes a note outside of the allowed note bounds,
-      # we will just delete it.
-      transposition_amount = random.randint(min_transpose, max_transpose)
-    else:
-      # Prevent transposition from taking a note outside of the allowed note
-      # bounds by clamping the range we sample from.
-      ns_min_pitch = min(ns.notes, key=lambda note: note.pitch).pitch
-      ns_max_pitch = max(ns.notes, key=lambda note: note.pitch).pitch
-
-      if ns_min_pitch < min_allowed_pitch:
-        logging.warn(
-            'A note sequence has some pitch=%d, which is less '
-            'than min_allowed_pitch=%d', ns_min_pitch, min_allowed_pitch)
-      if ns_max_pitch > max_allowed_pitch:
-        logging.warn(
-            'A note sequence has some pitch=%d, which is greater '
-            'than max_allowed_pitch=%d', ns_max_pitch, max_allowed_pitch)
-
-      min_transpose = _clamp_transpose(min_transpose, ns_min_pitch,
-                                       ns_max_pitch, min_allowed_pitch,
-                                       max_allowed_pitch)
-      max_transpose = _clamp_transpose(max_transpose, ns_min_pitch,
-                                       ns_max_pitch, min_allowed_pitch,
-                                       max_allowed_pitch)
-      transposition_amount = random.randint(min_transpose, max_transpose)
-
-    ns, _ = transpose_note_sequence(
-        ns,
-        transposition_amount,
-        min_allowed_pitch,
-        max_allowed_pitch,
-        in_place=True)
-
-  return ns
 
 
 def stretch_note_sequence(note_sequence, stretch_factor, in_place=False):
@@ -1662,92 +1495,6 @@ def apply_sustain_control_changes(note_sequence, sustain_control_number=64):
       sequence.total_time = time
 
   return sequence
-
-
-def infer_dense_chords_for_sequence(sequence,
-                                    instrument=None,
-                                    min_notes_per_chord=3):
-  """Infers chords for a NoteSequence and adds them as TextAnnotations.
-
-  For each set of simultaneously-active notes in a NoteSequence (optionally for
-  only one instrument), infers a chord symbol and adds it to NoteSequence as a
-  TextAnnotation. Every change in the set of active notes will result in a new
-  chord symbol unless the new set is smaller than `min_notes_per_chord`.
-
-  If `sequence` is quantized, simultaneity will be determined by quantized steps
-  instead of time.
-
-  Not to be confused with the chord inference in note_sequence.chord_inference
-  that attempts to infer a more natural chord sequence with changes at regular
-  metric intervals.
-
-  Args:
-    sequence: The NoteSequence for which chords will be inferred. Will be
-      modified in place.
-    instrument: The instrument number whose notes will be used for chord
-      inference. If None, all instruments will be used.
-    min_notes_per_chord: The minimum number of simultaneous notes for which to
-      infer a chord.
-
-  Raises:
-    ChordSymbolError: If a chord cannot be determined for a set of
-    simultaneous notes in `sequence`.
-  """
-  notes = [
-      note for note in sequence.notes if not note.is_drum and
-      (instrument is None or note.instrument == instrument)
-  ]
-  sorted_notes = sorted(notes, key=lambda note: note.start_time)
-
-  # If the sequence is quantized, use quantized steps instead of time.
-  if is_quantized_sequence(sequence):
-    note_start = lambda note: note.quantized_start_step
-    note_end = lambda note: note.quantized_end_step
-  else:
-    note_start = lambda note: note.start_time
-    note_end = lambda note: note.end_time
-
-  # Sort all note start and end events.
-  onsets = [
-      (note_start(note), idx, False) for idx, note in enumerate(sorted_notes)
-  ]
-  offsets = [
-      (note_end(note), idx, True) for idx, note in enumerate(sorted_notes)
-  ]
-  events = sorted(onsets + offsets)
-
-  current_time = 0
-  current_figure = constants.NO_CHORD
-  active_notes = set()
-
-  for time, idx, is_offset in events:
-    if time > current_time:
-      active_pitches = set(sorted_notes[idx].pitch for idx in active_notes)
-      if len(active_pitches) >= min_notes_per_chord:
-        # Infer a chord symbol for the active pitches.
-        figure = chord_symbols_lib.pitches_to_chord_symbol(active_pitches)
-
-        if figure != current_figure:
-          # Add a text annotation to the sequence.
-          text_annotation = sequence.text_annotations.add()
-          text_annotation.text = figure
-          text_annotation.annotation_type = CHORD_SYMBOL
-          if is_quantized_sequence(sequence):
-            text_annotation.time = (
-                current_time * sequence.quantization_info.steps_per_quarter)
-            text_annotation.quantized_step = current_time
-          else:
-            text_annotation.time = current_time
-
-        current_figure = figure
-
-    current_time = time
-    if is_offset:
-      active_notes.remove(idx)
-    else:
-      active_notes.add(idx)
-
-  assert not active_notes
 
 
 Pianoroll = collections.namedtuple(  # pylint:disable=invalid-name

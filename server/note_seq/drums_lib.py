@@ -26,7 +26,6 @@ import operator
 
 from note_seq import constants
 from note_seq import events_lib
-from note_seq import midi_io
 from note_seq import sequences_lib
 from note_seq.protobuf import music_pb2
 
@@ -264,21 +263,3 @@ class DrumTrack(events_lib.SimpleEventSequence):
     """
     super(DrumTrack, self).increase_resolution(
         k, fill_event=frozenset())
-
-
-def midi_file_to_drum_track(midi_file, steps_per_quarter=4):
-  """Loads a drum track from a MIDI file.
-
-  Args:
-    midi_file: Absolute path to MIDI file.
-    steps_per_quarter: Quantization of DrumTrack. For example, 4 = 16th notes.
-
-  Returns:
-    A DrumTrack object extracted from the MIDI file.
-  """
-  sequence = midi_io.midi_file_to_sequence_proto(midi_file)
-  quantized_sequence = sequences_lib.quantize_note_sequence(
-      sequence, steps_per_quarter=steps_per_quarter)
-  drum_track = DrumTrack()
-  drum_track.from_quantized_sequence(quantized_sequence)
-  return drum_track
