@@ -23,7 +23,7 @@ FLAGS = {
     'mode': 'sample',  # sample or interpolate
     'batch_size': 128,
     'temperature': 0.5,  # The randomness of the decoding process
-    'log': 'FATAL'  # DEBUG, INFO, WARN, ERROR, or FATAL
+    'log': 'ERROR'  # DEBUG, INFO, WARN, ERROR, or FATAL
 }
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'

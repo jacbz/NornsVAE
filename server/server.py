@@ -152,6 +152,7 @@ def append_to_log(data, type=None):
         data["type"] = type
     data["uid"] = uid
     app_log_buffer.append(data)
+    print(f"Log entry: {data}")
 
 
 def ask_for_email(email):
@@ -164,8 +165,14 @@ def ask_for_email(email):
 
 
 if __name__ == '__main__':
+    # init console filter and log
+    log_filename = Path(f"log_{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.log")
+    log_filename.touch(exist_ok=True)
+    sys.stdout = ConsoleFilter(sys.stdout, log_filename)
+    sys.stderr = ConsoleFilter(sys.stderr, log_filename)
+
     print("Welcome to NornsVAE!")
-    print("As part of my master thesis, I'm researching how machine learning can be applied"
+    print("As part of my master thesis, I'm researching how machine learning can be applied "
           "to an interactive music generation context.")
     print("After experimenting with NornsVAE, you are kindly asked to fill out a short survey on your experience.")
     print("Thank you!\n")
@@ -178,12 +185,6 @@ if __name__ == '__main__':
         email_file.seek(0)
         email_file.write(email)
         email_file.truncate()
-
-    # init console filter and log
-    log_filename = Path(f"log_{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
-    log_filename.touch(exist_ok=True)
-    sys.stdout = ConsoleFilter(sys.stdout, log_filename)
-    sys.stderr = ConsoleFilter(sys.stderr, log_filename)
 
     # load MusicVAE model
     print("Loading machine learning model...")
