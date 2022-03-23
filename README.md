@@ -17,7 +17,7 @@ All actions performed on the client and server are sent to the logging server fo
 
 ## Running the server
 There are two options for running server:
-1. Pre-built distributable for Windows (.exe) and Mac
+1. Pre-built distributable for Windows (.exe) and Mac (.dmg)
 2. Running from source
 
 If successfully started, the console will display:
@@ -26,7 +26,7 @@ If successfully started, the console will display:
 ```
 
 ### Pre-built distributable
-Download the distributables [here](https://github.com/jacbz/NornsVAE/releases) and run `server.exe` (Windows) or `server` (Mac). The distributable is quite large because of package dependencies (in particular, Tensorflow).
+Download the distributables [here](https://github.com/jacbz/NornsVAE/releases) and run `server.exe` (Windows) or `server.dmg` (Mac). The distributable is quite large because of package dependencies (in particular, Tensorflow).
 
 ### Running from source
 If you wish to run the server from source, you will need Python (and preferably Anaconda).

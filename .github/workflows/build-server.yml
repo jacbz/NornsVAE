@@ -48,7 +48,7 @@ jobs:
             curl https://home.in.tum.de/~zhangja/nornsvae/assets.zip -o assets.zip
             unzip assets.zip
       - name: Build
-        run: python3 setup.py build
+        run: python3 setup.py bdist_dmg
       - name: Package
         run: cd build && zip -r ../nornsvae_server_mac.zip .
       - uses: actions/upload-artifact@v3
