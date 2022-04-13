@@ -13,7 +13,6 @@ from musicvae_interface.configs import ATTRIBUTES, MUSICVAE_CONFIG
 NUMBER_OF_SAMPLES = 370000
 logging = tf.logging
 FLAGS = {
-    'checkpoint_file': 'ckpt',
     'config': 'cat-drums_1bar_8class',
     'mode': 'sample', # sample or interpolate
     'num_outputs': NUMBER_OF_SAMPLES,
@@ -70,7 +69,7 @@ def measure(z, samples):
   return attribute_vectors
 
 def measure_metric(sequence, metric):
-  if metric == 'DSTY':
+  if metric == 'DS':
     return len(sequence.notes)
   if metric == 'BD':
     return sum(note.pitch == 36 for note in sequence.notes)
@@ -94,23 +93,21 @@ if __name__ == '__main__':
   config = MUSICVAE_CONFIG
   config.data_converter.max_tensors_per_item = None
   logging.info('Loading model...')
-  checkpoint_file = os.path.expanduser(FLAGS['checkpoint_file'])
+  checkpoint_file = os.path.expanduser(f"../assets/checkpoint")
   model = TrainedModel(
     config, batch_size=FLAGS['max_batch_size'],
     checkpoint_dir_or_path=checkpoint_file)
 
-  prefix = 'drums'
-
   z, samples = generate()
-  with open(f'{prefix}_samples.p', 'wb') as handle:
-      pickle.dump((z, samples), handle)
+  # with open(f'{prefix}_samples.p', 'wb') as handle:
+  #     pickle.dump((z, samples), handle)
 
   # print('Loading pickle, ~60 seconds')
   # with open(f'{prefix}_samples.p', 'rb') as handle:
   #   z, samples = pickle.load(handle)
 
   attribute_vectors = measure(z, samples)
-  with open(f'{prefix}_attribute_vectors.p', 'wb') as handle:
+  with open(f'../assets/drums_attribute_vectors.p', 'wb') as handle:
     pickle.dump(attribute_vectors, handle)
 
   # PCA

@@ -130,7 +130,7 @@ def log():
 def send_log_to_server():
     count = len(app_log_buffer)
     print(f"Logging {count} item{'s' if count != 1 else ''}")
-    requests.post("http://localhost:3000/log", json=app_log_buffer)
+    requests.post("https://nornsvae-logging.medien.ifi.lmu.de", json=app_log_buffer)
     app_log_buffer.clear()
 
 
