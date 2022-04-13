@@ -106,7 +106,7 @@ def replace():
 @app.route("/reload")
 def reload():
     def reload_target():
-        interface.init()
+        interface.init_random()
         return interface.lookahead()
     return do_job("request_reload", lambda: reload_target())
 
@@ -130,8 +130,11 @@ def log():
 def send_log_to_server():
     count = len(app_log_buffer)
     print(f"Logging {count} item{'s' if count != 1 else ''}")
-    requests.post("https://nornsvae-logging.medien.ifi.lmu.de", json=app_log_buffer)
-    app_log_buffer.clear()
+    response = requests.post("https://nornsvae-logging.medien.ifi.lmu.de", json=app_log_buffer)
+    if response.status_code == 200:
+        app_log_buffer.clear()
+    else:
+        print(f"Error sending log to server: {response.status_code} {response.reason}", file=sys.stderr)
 
 
 def logging_thread():

@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 
 import copy
+import json
 import os
 import pickle
 import timeit
@@ -39,6 +40,7 @@ class Interface():
         self.model = TrainedModel(
             self.config, batch_size=FLAGS['batch_size'],
             checkpoint_dir_or_path=checkpoint_file)
+        self.assets_folder = assets_folder
 
         with open(f'{assets_folder}/drums_note_seq.p', 'rb') as handle:
             self.base_note_seq = pickle.load(handle)
@@ -56,9 +58,14 @@ class Interface():
         self.seq2hash = None
         self.current_attr_values = None
         self.current_attr = ATTRIBUTES[0]
-        self.init()
+        self.init_predefined()
 
-    def init(self):
+    def init_predefined(self):
+        with open(f'{self.assets_folder}/initial_patterns.json') as json_string:
+            initial_sequences = json.load(json_string)
+            self.replace(initial_sequences[0], initial_sequences[1])
+
+    def init_random(self):
         initial_sequences = self.sample(2)
         self.seq1hash = initial_sequences[0]['hash']
         self.seq2hash = initial_sequences[1]['hash']

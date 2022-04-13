@@ -10,7 +10,7 @@ import tensorflow.compat.v1 as tf
 from magenta.models.music_vae import TrainedModel
 from musicvae_interface.configs import ATTRIBUTES, MUSICVAE_CONFIG
 
-NUMBER_OF_SAMPLES = 370000
+NUMBER_OF_SAMPLES = 1000000
 logging = tf.logging
 FLAGS = {
     'config': 'cat-drums_1bar_8class',

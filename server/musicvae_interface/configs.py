@@ -43,6 +43,8 @@ MUSICVAE_CONFIG = Config(
             dec_rnn_size=[256, 256],
             free_bits=64,
             max_beta=0.2,
+            learning_rate=0.01,
+            min_learning_rate=0.001,
             sampling_schedule='inverse_sigmoid',
             sampling_rate=1000,
         )),
@@ -72,8 +74,7 @@ DRUM_MAP_INVERTED = {v: k for k, v in DRUM_MAP.items()}
 
 INTERPOLATION_STEPS = 11
 ATTR_STEPS = 9
-ATTR_STEP_SIZE = 0.5
-# [-0.9, -0.6, -0.3, 0, 0.3, 0.6, 0.9]
+ATTR_STEP_SIZE = 1.0
 ATTR_MULTIPLIERS = [ATTR_STEP_SIZE * x - (math.floor(ATTR_STEPS / 2) * ATTR_STEP_SIZE) for x in range(ATTR_STEPS)]
 MAX_SEQ_LENGTH = 16
 
