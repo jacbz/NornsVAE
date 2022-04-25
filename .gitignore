@@ -6,3 +6,4 @@ node_modules
 assets
 server/email
 *.log
+secrets.json
