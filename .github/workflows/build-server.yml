@@ -3,7 +3,7 @@ name: build_server
 on:
   push:
     branches: [ master ]
-#    paths: [ server/** ]
+    paths: [ server/** ]
   workflow_dispatch:
 
 defaults:
@@ -34,32 +34,9 @@ jobs:
           path: server/nornsvae_server_windows.zip
 
 
-  build-mac:
-    runs-on: macos-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Install dependencies
-        run: |
-            pip3 install -r requirements.txt
-            pip3 install cx_Freeze
-      - name: Copy assets
-        run: |
-            curl https://home.in.tum.de/~zhangja/nornsvae/assets.zip -o assets.zip
-            unzip assets.zip
-      - name: Build
-        run: python3 setup.py bdist_dmg
-      - name: Package
-        run: cd build && zip -r ../nornsvae_server_mac.zip .
-      - uses: actions/upload-artifact@v3
-        with:
-          name: nornsvae_server_mac
-          path: server/nornsvae_server_mac.zip
-
-
   release:
     runs-on: ubuntu-latest
-    needs: [build-windows, build-mac]
+    needs: [build-windows]
     steps:
       - uses: actions/download-artifact@v3
       - name: Release
@@ -71,4 +48,3 @@ jobs:
           body: Test release (auto-generated)
           files: |
             nornsvae_server_windows/nornsvae_server_windows.zip
-            nornsvae_server_mac/nornsvae_server_mac.zip
