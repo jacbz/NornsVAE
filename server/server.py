@@ -178,6 +178,8 @@ if __name__ == '__main__':
     print("As part of my master thesis, I'm researching how machine learning can be applied "
           "to an interactive music generation context.")
     print("After experimenting with NornsVAE, you are kindly asked to fill out a short survey on your experience.")
+    print("All actions performed on the client and server are sent to the logging server for evaluation as part of my thesis. "
+          "By using this software, you agree to logging. When the user study is completed, logging will be removed.")
     print("Thank you!\n")
 
     # email handling
