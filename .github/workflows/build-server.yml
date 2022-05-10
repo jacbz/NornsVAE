@@ -3,7 +3,7 @@ name: build_server
 on:
   push:
     branches: [ master ]
-#    paths: [ server/** ]
+    paths: [ server/**, .github/** ]
   workflow_dispatch:
 
 defaults:
@@ -15,17 +15,21 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v3    
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.8
       - name: Install dependencies
         run: |
-            pip3 install -r requirements.txt
-            pip3 install cx_Freeze
+            pip install -r requirements.txt
+            pip install cx_Freeze
       - name: Copy assets
         run: |
             Invoke-WebRequest -Uri https://home.in.tum.de/~zhangja/nornsvae/assets.zip -Outfile assets.zip
-            Expand-Archive assets.zip .
+            Expand-Archive assets.zip assets
       - name: Build
-        run: python3 setup.py build
+        run: python setup.py build
       - name: Package
         run: Compress-Archive build/* nornsvae_server_windows.zip
       - uses: actions/upload-artifact@v3
@@ -42,7 +46,9 @@ jobs:
       - name: Copy assets
         run: |
             curl https://home.in.tum.de/~zhangja/nornsvae/assets.zip -o assets.zip
-            unzip assets.zip
+            mkdir assets
+            unzip assets.zip -d assets
+            rm assets.zip
       - name: Package
         run: zip -r nornsvae_server_source.zip .
       - uses: actions/upload-artifact@v3
