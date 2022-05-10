@@ -26,35 +26,56 @@ If successfully started, the console will display:
 ```
 
 ### Pre-built distributable (Windows)
-Download the distributables [here](https://github.com/jacbz/NornsVAE/releases) and run `server.exe`. The distributable is quite large because of package dependencies (in particular, Tensorflow).
+Download the distributables [here](https://github.com/jacbz/NornsVAE/releases/download/release/nornsvae_server_windows.zip) and run `server.exe`. The distributable is quite large because of package dependencies (in particular, Tensorflow).
 
 ### Running from source (Mac)
 On Mac, you'll need to run the server from source. You'll need Python and Miniforge.
 
-1. Download Miniforge [here](https://github.com/conda-forge/miniforge). If you have an M1 Mac, you'll need the Apple Silicon version. Run the downloaded install script:
+1. Download [Miniforge](https://github.com/conda-forge/miniforge).
+
+	If you have an M1 Mac, you'll need the arm64 (Apple Silicon) version. Download the script [here](https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-arm64.sh) and install it:
 	```
 	bash Miniforge3-MacOSX-arm64.sh
 	```
+	
+	If you have an Intel Mac, you'll need the x86_64 version. Download the script [here](https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-x86_64.sh) and install it:
+	```
+	bash Miniforge3-MacOSX-arm64.sh
+	```
+
 2. Once this is complete, you can set up a new Conda environment where we will install the required packages:
 	```
 	conda create --name nornsvae python=3.8
+	```
+	Now you can use (activate) this environment:
+	```
 	conda activate nornsvae
 	```
+	The command line should now display `(nornsvae)`.
 3. Install Tensorflow inside the new environment:
 	```
 	conda install -c apple tensorflow-deps
+	```
+	If you have an M1 Mac, install `tensorflow-macos`:
+	```
 	pip install tensorflow-macos
 	```
-4. Navigate to the `server` folder inside the NornsVAE repo, and install the other dependencies:
+	If you have an Intel Mac, install `tensorflow`:
+	```
+	pip install tensorflow
+	```
+4. Download the NornsVAE Server [here](https://github.com/jacbz/NornsVAE/releases/download/release/nornsvae_server_source.zip) and unzip it. Run the following commands from within the `server` folder:
 	```
 	pip install -r requirements.txt
 	```
-5. Download the assets [here](https://home.in.tum.de/~zhangja/nornsvae/assets.zip) (this includes the machine learning model) and copy the `assets` folder into the `server` folder
-6. Run the server using
+	Make sure that you are in the NornsVAE environment.
+5. Run the server using
 	```
 	python server.py
 	```
-When you run the server, make sure that you are using the `nornsvae` environment (`conda activate nornsvae`).
+	Make sure that you are in the NornsVAE environment.
+	
+If you have trouble running the server, see the [Troubleshooting Guide](TROUBLESHOOTING.md).
 
 ## Running the client
 1. From maiden, type

@@ -49,6 +49,7 @@ jobs:
             mkdir assets
             unzip assets.zip -d assets
             rm assets.zip
+            rm setup.py
       - name: Package
         run: zip -r nornsvae_server_source.zip .
       - uses: actions/upload-artifact@v3
