@@ -4,7 +4,7 @@ const nodemailer = require("nodemailer");
 var fs = require("fs");
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: 10000000 }));
 const MongoClient = require("mongodb").MongoClient;
 const connectionString = `mongodb://${secrets.mongodb_user}:${secrets.mongodb_pw}@localhost:27017`;
 
