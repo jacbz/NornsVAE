@@ -1,0 +1,12 @@
+Hi!
+
+Thank you for trying out NornsVAE. The project is being developed as part of my Master's thesis, where I'm researching how machine learning can be applied to an interactive music generation context.
+
+I'm kinding asking you to fill out a short survey on your experience in your last session here:
+
+%url
+
+If you have any questions, please don't hesitate to reach out to me. Thank you so much!
+
+Regards,
+Jacob

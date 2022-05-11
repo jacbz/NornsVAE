@@ -1,4 +1,5 @@
 import json
+import os
 import random
 import re
 import sys
@@ -11,6 +12,7 @@ from flask import Flask
 from flask import request
 import requests
 import hashlib
+import webbrowser
 
 from musicvae_interface.console_filter import ConsoleFilter
 from musicvae_interface.interface import Interface
@@ -171,16 +173,20 @@ if __name__ == '__main__':
     # init console filter and log
     log_filename = Path(f"log_{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.log")
     log_filename.touch(exist_ok=True)
+
     sys.stdout = ConsoleFilter(sys.stdout, log_filename)
     sys.stderr = ConsoleFilter(sys.stderr, log_filename)
 
+    opened_pre_questionnaire = os.path.exists("pre_questionnaire")
+
     print("Welcome to NornsVAE!")
     print("As part of my master thesis, I'm researching how machine learning can be applied "
-          "to an interactive music generation context.")
-    print("After experimenting with NornsVAE, you are kindly asked to fill out a short survey on your experience.")
-    print("All actions performed on the client and server are sent to the logging server for evaluation as part of my thesis. "
-          "By using this software, you agree to logging. When the user study is completed, logging will be removed.")
-    print("Thank you!\n")
+          "to an interactive music generation context.\n")
+    if not opened_pre_questionnaire:
+        print("You are kindly asked to fill out a Pre-Questionnaire first before you use NornsVAE.")
+    print("After each session with NornsVAE, you will be asked to fill out a short questionnaire on the specific session.")
+    print("After a few weeks, you will be asked to fill out a Post-Questionnaire on your experiences as a whole.")
+    print("Bandcamp vouchers will be randomly awarded to participants after the end of the user study.\n")
 
     # email handling
     email_filename = Path('email')
@@ -190,6 +196,19 @@ if __name__ == '__main__':
         email_file.seek(0)
         email_file.write(email)
         email_file.truncate()
+
+    if not opened_pre_questionnaire:
+        pre_questionnaire_url = f'https://jacobz.limesurvey.net/257256?newtest=Y&uid={uid}&email={email}'
+        print("Please complete the Pre-Questionnaire before using NornsVAE. Thank you so much!")
+        print(f"Please press the [ENTER] key now to open the Pre-Questionnaire. You can also open it manually: {pre_questionnaire_url}")
+        x = input()
+        webbrowser.open(pre_questionnaire_url)
+        with open('pre_questionnaire', 'w') as f:
+            f.write(pre_questionnaire_url)
+
+    print("All actions performed on the client and server are sent to the logging server for evaluation as part of my thesis.")
+    print("By using this software, you agree to logging. When the user study is completed, logging will be removed.")
+    print("Thank you!\n")
 
     # load MusicVAE model
     print("Loading machine learning model...")
@@ -205,4 +224,4 @@ if __name__ == '__main__':
     # run Flask server without showing banner
     cli = sys.modules['flask.cli']
     cli.show_server_banner = lambda *x: None
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=6123)
