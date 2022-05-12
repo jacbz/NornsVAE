@@ -7,6 +7,7 @@ import os
 import pickle
 import numpy as np
 import tensorflow.compat.v1 as tf
+
 from magenta.models.music_vae import TrainedModel
 from musicvae_interface.configs import ATTRIBUTES, MUSICVAE_CONFIG
 
@@ -21,8 +22,10 @@ FLAGS = {
     'log': 'WARN' # DEBUG, INFO, WARN, ERROR, or FATAL
 }
 
+
 def attribute_string(values):
   return ", ".join([attr + '{0:+}'.format(int(val)) for attr, val in zip(ATTRIBUTES, values)])
+
 
 def generate():
   print('Generating')
@@ -40,6 +43,7 @@ def generate():
       temperature=FLAGS['temperature'])
     z = np.append(z, current_z, 0)
   return z, results
+
 
 def measure(z, samples):
   print('Measuring')
@@ -68,6 +72,7 @@ def measure(z, samples):
     attribute_vectors[attr] = attribute_vec
   return attribute_vectors
 
+
 def measure_metric(sequence, metric):
   if metric == 'DS':
     return len(sequence.notes)
@@ -89,6 +94,27 @@ def measure_metric(sequence, metric):
     return np.mean(intervals)
 
 
+# def generate_pca_model():
+#   size = 10000
+#   z1 = np.random.randn(size, config.hparams.z_size).astype(np.float32)
+#   z2 = np.random.randn(size, config.hparams.z_size).astype(np.float32)
+#   initial_z = np.empty([0, config.hparams.z_size]).astype(np.float32)
+#   for i in range(size):
+#     initial_z = np.append(initial_z, [slerp(z1[i], z2[i], t) for t in np.linspace(0, 1, INTERPOLATION_STEPS)], 0)
+#
+#   z = np.empty([0, config.hparams.z_size]).astype(np.float32)
+#   with open(f'../assets/drums_attribute_vectors.p', 'rb') as handle:
+#       attribute_vectors = pickle.load(handle)
+#       for attr in ATTRIBUTES:
+#         for multiplier in ATTR_MULTIPLIERS:
+#           z = np.append(z, initial_z + multiplier * attribute_vectors[attr], 0)
+#
+#   pca = PCA(n_components=2)
+#   pca_model = pca.fit(z)
+#   with open('pca_model.p', 'wb') as handle:
+#     pickle.dump(pca_model, handle)
+
+
 if __name__ == '__main__':
   config = MUSICVAE_CONFIG
   config.data_converter.max_tensors_per_item = None
@@ -99,19 +125,9 @@ if __name__ == '__main__':
     checkpoint_dir_or_path=checkpoint_file)
 
   z, samples = generate()
-  # with open(f'{prefix}_samples.p', 'wb') as handle:
-  #     pickle.dump((z, samples), handle)
-
-  # print('Loading pickle, ~60 seconds')
-  # with open(f'{prefix}_samples.p', 'rb') as handle:
-  #   z, samples = pickle.load(handle)
-
   attribute_vectors = measure(z, samples)
   with open(f'../assets/drums_attribute_vectors.p', 'wb') as handle:
     pickle.dump(attribute_vectors, handle)
 
   # PCA
-  # pca = PCA(n_components=2)
-  # pca_model = pca.fit(z)
-  # with open('pca_model.p', 'wb') as handle:
-  #   pickle.dump(pca_model, handle)
+  # generate_pca_model()

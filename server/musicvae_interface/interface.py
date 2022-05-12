@@ -201,8 +201,8 @@ class Interface():
 
     def pca_2d(self, z):
         pca = PCA(n_components=2)
-        pca_result = pca.fit_transform(z)
-        # pca_result = self.pca_model.transform(z)
+        # pca_result = pca.fit_transform(z)
+        pca_result = self.pca_model.transform(z)
 
         x = pca_result[:, 0]
         pca_result[:, 0] = (x + PCA_CLIP) / (2 * PCA_CLIP)
