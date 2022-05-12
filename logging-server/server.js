@@ -32,7 +32,6 @@ MongoClient.connect(connectionString, { useUnifiedTopology: true }).then(
       .route("/")
       .get((req, res) => {
         res.send("Logging server is running!");
-        // sendMail("jacob-z@live.de", "test", emailCollection);
       })
       .post((req, res) => {
         logCollection
