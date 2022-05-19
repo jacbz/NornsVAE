@@ -31,6 +31,7 @@ Download the distributables [here](https://github.com/jacbz/NornsVAE/releases/do
 ### Running from source (Mac)
 On Mac, you'll need to run the server from source. You'll need Python and Miniforge.
 
+#### Installation
 1. Download [Miniforge](https://github.com/conda-forge/miniforge).
 
 	If you have an M1 Mac, you'll need the arm64 (Apple Silicon) version. Download the script [here](https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-arm64.sh) and install it:
@@ -68,14 +69,14 @@ On Mac, you'll need to run the server from source. You'll need Python and Minifo
 	```
 	pip install -r requirements.txt
 	```
-	Make sure that you are in the NornsVAE environment.
-5. Run the server using
-	```
-	python server.py
-	```
-	Make sure that you are in the NornsVAE environment.
+	Make sure that you are in the NornsVAE environment: `conda activate nornsvae`
 	
-If you have trouble running the server, see the [Troubleshooting Guide](TROUBLESHOOTING.md).
+If you have trouble installing the requirements, see the [Troubleshooting Guide](TROUBLESHOOTING.md).
+
+#### Run
+Once you have installed all dependencies, simply navigate to the `server` folder and run the server using `python server.py`. Make sure that you are in the NornsVAE environment: `conda activate nornsvae`
+
+The terminal will display the local IP address of your computer, if everything works.
 
 ## Running the client
 1. From maiden, type
