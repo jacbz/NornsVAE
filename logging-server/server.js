@@ -2,6 +2,7 @@ const express = require("express");
 const secrets = require("./secrets.json");
 const nodemailer = require("nodemailer");
 var fs = require("fs");
+require('log-timestamp');
 
 const app = express();
 app.use(express.json({ limit: 10000000 }));
@@ -45,8 +46,6 @@ MongoClient.connect(connectionString, { useUnifiedTopology: true }).then(
 );
 
 async function emailRunner(logCollection, emailCollection) {
-  console.log("Checking whether to send emails...")
-
   // get list of users who logged more than 30 items in the last 24 hours, but not in the last 1 hour
   const lastDay = new Date();
   lastDay.setHours(lastDay.getHours() - 24);
@@ -54,7 +53,7 @@ async function emailRunner(logCollection, emailCollection) {
   const lastHour = new Date();
   lastHour.setHours(lastHour.getHours() - 1);
 
-  let users = await logCollection
+  let activeUsers = await logCollection
     .aggregate([
       {
         $match: {
@@ -70,8 +69,8 @@ async function emailRunner(logCollection, emailCollection) {
           num_entries: {
             $sum: 1,
           },
-          email: {
-            $first: "$data.email",
+          uid: {
+            $first: "$uid",
           },
         },
       },
@@ -83,8 +82,10 @@ async function emailRunner(logCollection, emailCollection) {
       },
     ])
     .toArray();
-  console.log("Active users:", users);
 
+  if (activeUsers.length === 0) return;
+
+  console.log("Active users:", activeUsers);
   // get list of users to whom an email has already been sent within the last 24 hours
   let alreadySentEmails = await emailCollection
     .aggregate([
@@ -95,7 +96,7 @@ async function emailRunner(logCollection, emailCollection) {
       },
       {
         $group: {
-          _id: "$email"
+          _id: "$uid"
         }
       }
     ])
@@ -103,17 +104,47 @@ async function emailRunner(logCollection, emailCollection) {
   alreadySentEmails = alreadySentEmails.map(o => o._id);
   console.log("Already sent to: ", alreadySentEmails);
 
-
   // send email to users except those who have already received on in the last 24 hours
-  for(const user of users) {
-    if (!alreadySentEmails.includes(user.email)) {
-      sendMail(user.email, `https://jacobz.limesurvey.net/238976?newtest=Y&uid=${user._id}&email=${user.email}`, emailCollection)
+  for(const user of activeUsers) {
+    if (!alreadySentEmails.includes(user.uid)) {
+      const email = await getMailFromUid(user.uid, logCollection);
+      if (email) {
+        sendMail(user.uid, email, `https://jacobz.limesurvey.net/238976?newtest=Y&uid=${user.uid}&email=${email}`, emailCollection)
+      }
     }
   }
 }
 
+async function getMailFromUid(uid, logCollection) {
+  let users = await logCollection
+    .aggregate([
+      {
+        '$match': {
+          'uid': uid, 
+          'data.email': {
+            '$exists': true
+          }
+        }
+      }, {
+        '$group': {
+          '_id': '$uid', 
+          'mail': {
+            '$last': '$data.email'
+          }
+        }
+      }
+    ])
+    .toArray();
+  console.log(`Mail for user ${uid}`, users);
+  if (users.length !== 1) {
+    console.log("Error: array length is not 1");
+    return null;
+  }
+  return users[0].mail;
+}
 
-function sendMail(receiverMail, studyUrl, emailCollection) {
+
+function sendMail(receiverUid, receiverMail, studyUrl, emailCollection) {
   console.log("Sending mail...");
   let transporter = nodemailer.createTransport({
     host: secrets.smtp_server,
@@ -143,6 +174,7 @@ function sendMail(receiverMail, studyUrl, emailCollection) {
 
       emailCollection
         .insertOne({
+          uid: receiverUid,
           email: receiverMail,
           date: new Date().toISOString(),
           info,
