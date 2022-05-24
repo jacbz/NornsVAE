@@ -5,6 +5,8 @@
 
 NornsVAE is a machine-learning-powered drum sequencer for the [Norns](https://monome.org/norns/) platform. It uses Google's [MusicVAE](https://magenta.tensorflow.org/music-vae) model to generate drum sequences. Because of the limited computing power on a Rasberry Pi, computations are performed by a separate Python server, which needs to be independently run on a computer in the same network.
 
+**[Introduction video on YouTube](https://youtu.be/sj_bG7nzDqU)**
+
 It is being developed as part of my Master's thesis in computer science, which aims to research interactive music generation with deep learning.
 
 The project consists of three modules:
@@ -14,6 +16,8 @@ The project consists of three modules:
 3. a logging server (JavaScript / Express.js / MongoDB)
 
 All actions performed on the client and server are sent to the logging server for evaluation as part of my thesis. By using this software, you agree to logging. When the user study is completed, logging will be removed.
+
+For more information on the user study, see the post on [lines.co](https://llllllll.co/t/nornsvae-ml-powered-drum-sequencer-for-norns/55624).
 
 ## Running the server
 There are two options for running server:
