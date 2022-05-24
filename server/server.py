@@ -118,10 +118,12 @@ def log():
     log_data = request.args.get("data")
 
     def add_to_log(log_data):
-        for json_data in log_data.split(";"):
+        log_array = log_data.split(";")
+        for json_data in log_array:
             data = json.loads(json_data)
             data["source"] = "client"
             append_to_log(data)
+        print(f"Received {len(log_array)} log items from client")
 
     thread = threading.Thread(target=lambda: add_to_log(log_data))
     thread.daemon = True
