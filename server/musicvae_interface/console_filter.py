@@ -19,7 +19,7 @@ class ConsoleFilter(object):
             if len(data) > 1:
                 data = f"[{datetime.now().strftime('%H:%M:%S')}]\t{data}"
 
-            if self.pattern.search(data) is None:
+            if "Running on h" in data or self.pattern.search(data) is None:
                 self.stream.write(data)
                 self.stream.flush()
             else:
