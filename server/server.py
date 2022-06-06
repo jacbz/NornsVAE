@@ -171,24 +171,41 @@ if __name__ == '__main__':
 
     print("Welcome to NornsVAE!")
 
-    if not user_study:
+    if user_study:
+        with open('user_study', 'r+') as file:
+            try:
+                d = datetime.datetime.fromtimestamp(float(file.read()))
+            except ValueError:
+                d = None
+
+            if d is not None and (datetime.datetime.now() - d).days > 7:
+                post_questionnaire_url = f'https://jacobz.limesurvey.net/179125?newtest=Y&uid={uid}'
+                print("It has been seven days since you first used NornsVAE.")
+                print("You are kindly asked to complete the Post-Questionnaire now. Thank you so much!")
+                print(f"Please press the [ENTER] key now to open the Post-Questionnaire. "
+                      f"You can also open it manually: {post_questionnaire_url}")
+                y = input()
+                webbrowser.open(post_questionnaire_url)
+                file.truncate(0)
+    else:
         print("As part of my master thesis, I'm researching how machine learning can be applied "
           "to an interactive music generation context.")
         print("For that purpose, I’m conducting a user study. Bandcamp vouchers will be randomly awarded to participants.")
         print("Would you like to participate in the user study? [Y/N]")
 
         choice = input().lower()
-        if not 'n' in choice:
-            print("You are kindly asked to fill out a Pre-Questionnaire first before you use NornsVAE.")
-
+        if 'n' in choice:
+            open('user_study', 'a').close()
+            print(":( If you change your mind, simply delete the 'user_study' file in the folder.")
+        else:
+            print("You are kindly asked to fill out a Pre-Questionnaire before you use NornsVAE.")
             pre_questionnaire_url = f'https://jacobz.limesurvey.net/257256?newtest=Y&uid={uid}'
-            print("Please complete the Pre-Questionnaire before using NornsVAE. Thank you so much!")
             print(f"Please press the [ENTER] key now to open the Pre-Questionnaire. You can also open it manually: {pre_questionnaire_url}")
             x = input()
             webbrowser.open(pre_questionnaire_url)
             with open('user_study', 'w') as f:
-                f.write(pre_questionnaire_url)
-            print("Thank you!\n")
+                f.write(str(time.time()))
+            print("Thank you! After seven days, you will be asked to fill out a Post-Quesionnaire on your experiences.\n")
 
     # load MusicVAE model
     print("Loading machine learning model...")
