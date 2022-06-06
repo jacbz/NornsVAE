@@ -4,7 +4,7 @@ dist
 build
 node_modules
 assets
-server/email
-server/pre_questionnaire
+server/user_study
 *.log
 secrets.json
+*.zip

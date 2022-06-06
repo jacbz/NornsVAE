@@ -9,28 +9,26 @@ NornsVAE is a machine-learning-powered drum sequencer for the [Norns](https://mo
 
 It is being developed as part of my Master's thesis in computer science, which aims to research interactive music generation with deep learning.
 
-The project consists of three modules:
+The project consists of two parts:
 
 1. a client, written as a Norns script in Lua
 2. a server, implemented as a Python server (Flask) that wraps a MusicVAE (Tensorflow) instance
-3. a logging server (JavaScript / Express.js / MongoDB)
-
-All actions performed on the client and server are sent to the logging server for evaluation as part of my thesis. By using this software, you agree to logging. When the user study is completed, logging will be removed.
-
-For more information on the user study, see the post on [lines.co](https://llllllll.co/t/nornsvae-ml-powered-drum-sequencer-for-norns/55624).
 
 ## Running the server
 There are two options for running server:
 1. Pre-built distributable (Windows)
-2. Running from source (Mac)
+2. Running from source (Mac/Windows)
 
 If successfully started, the console will display:
 ```
 * Running on http://<ip address>:5000/ (Press CTRL+C to quit)
 ```
+Sadly, installing the server requires a large number of dependencies (in particular Tensorflow).
 
 ### Pre-built distributable (Windows)
-Download the distributables [here](https://github.com/jacbz/NornsVAE/releases/download/release/nornsvae_server_windows.zip) and run `server.exe`. The distributable is quite large because of package dependencies (in particular, Tensorflow).
+Download the distributables [here](https://github.com/jacbz/NornsVAE/releases/download/release/nornsvae_server_windows.zip) and run `server.exe`.
+
+To uninstall, simply delete the folder; nothing is installed locally.
 
 ### Running from source (Mac)
 On Mac, you'll need to run the server from source. You'll need Python and Miniforge.
@@ -77,6 +75,8 @@ On Mac, you'll need to run the server from source. You'll need Python and Minifo
 	
 If you have trouble installing the requirements, see the [Troubleshooting Guide](TROUBLESHOOTING.md).
 
+If you wish to uninstall, delete the `nornsvae` environment with `conda env remove --name nornsvae` or [uninstall](https://github.com/conda-forge/miniforge#uninstallation) Miniforge altogether.
+
 #### Run
 Once you have installed all dependencies, simply navigate to the `server` folder and run the server using `python server.py`. Make sure that you are in the NornsVAE environment: `conda activate nornsvae`
 
@@ -89,6 +89,3 @@ The terminal will display the local IP address of your computer, if everything w
 	```
 2. Write the IP address of the server into the file `server-ip`, located inside the script folder
 3. You can now start using the script!
-
-## Links
-- View on [norns community](https://norns.community/en/authors/jacbz/nornsvae)
