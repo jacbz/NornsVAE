@@ -27,8 +27,6 @@ uid = hashlib.md5(hex(get_mac()).encode('utf-8')).hexdigest()
 
 client_time_offset = datetime.timedelta(0)
 
-log_has_changed = False
-
 
 @app.route("/")
 def base():
@@ -132,20 +130,14 @@ def log():
     return 'OK'
 
 
-def log_zipping_thread():
-    global log_has_changed
-    while True:
-        if log_has_changed:
-            Path('logs.zip').unlink(missing_ok=True)
-            with zipfile.ZipFile('logs.zip', 'w', compression=zipfile.ZIP_DEFLATED) as log_zip:
-                for f in glob.glob("*.log"):
-                    log_zip.write(f)
-            log_has_changed = False
-        time.sleep(60)
+def zip_logs():
+    Path('logs.zip').unlink(missing_ok=True)
+    with zipfile.ZipFile('logs.zip', 'w', compression=zipfile.ZIP_DEFLATED) as log_zip:
+        for f in glob.glob("*.log"):
+            log_zip.write(f)
 
 
 def append_to_log(data, type=None):
-    global log_has_changed
     if "source" not in data:
         data["source"] = "server"
         data["time"] = datetime.datetime.utcnow().isoformat()
@@ -155,7 +147,6 @@ def append_to_log(data, type=None):
     if type is not None:
         data["type"] = type
     data["uid"] = uid
-    log_has_changed = True
     print(f"Log entry: {data}\n")
 
 
@@ -179,6 +170,7 @@ if __name__ == '__main__':
                 d = None
 
             if d is not None and (datetime.datetime.now() - d).days > 7:
+                zip_logs()
                 post_questionnaire_url = f'https://jacobz.limesurvey.net/179125?newtest=Y&uid={uid}'
                 print("It has been seven days since you first used NornsVAE.")
                 print("You are kindly asked to complete the Post-Questionnaire now. Thank you so much!")
@@ -214,9 +206,6 @@ if __name__ == '__main__':
     # log server init
     append_to_log({}, "init_server")
     print(f"Your anonymized user ID is {uid}")
-
-    # start log zipping thread
-    threading.Thread(target=log_zipping_thread).start()
 
     # run Flask server without showing banner
     cli = sys.modules['flask.cli']
