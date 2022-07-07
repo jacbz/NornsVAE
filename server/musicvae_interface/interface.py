@@ -54,6 +54,8 @@ class Interface():
         self.z_memory = {}
         self.lookahead_memory = {}
 
+        self.init_random()
+
         self.seq1hash = None
         self.seq2hash = None
         self.current_attr_values = None
@@ -200,9 +202,9 @@ class Interface():
         return results
 
     def pca_2d(self, z):
-        pca = PCA(n_components=2)
-        # pca_result = pca.fit_transform(z)
-        pca_result = self.pca_model.transform(z)
+        model = PCA(n_components=2)
+        model.fit(np.array(list(self.z_memory.values())))
+        pca_result = model.transform(z)
 
         x = pca_result[:, 0]
         pca_result[:, 0] = (x + PCA_CLIP) / (2 * PCA_CLIP)
